@@ -62,6 +62,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self._pending_timer = QtCore.QTimer(self)
         self._pending_timer.timeout.connect(self._drain_pending)
         self._pending_timer.start(250)
+        self._delete_timer = QtCore.QTimer(self)
+        self._delete_timer.timeout.connect(self._process_pending_deletes)
+        self._delete_timer.start(8000)
         self.refresh_all()
 
     def refresh_all(self) -> None:
@@ -211,6 +214,47 @@ class MainWindow(QtWidgets.QMainWindow):
             added = True
         if added:
             self.refresh_all()
+
+    def _process_pending_deletes(self) -> None:
+        pending = done_log_store.entries_by_status("PENDING_DELETE")
+        for ev in pending:
+            src = ev.get("src")
+            dest = ev.get("dest")
+            attempts = int(ev.get("delete_attempts", 0))
+            if not src:
+                continue
+            if not Path(dest).exists():
+                done_log_store.update_status_by_source(src, "DONE", attempts)
+                continue
+            if not Path(src).exists():
+                done_log_store.update_status_by_source(src, "DONE", attempts)
+                continue
+            try:
+                Path(src).unlink()
+                done_log_store.update_status_by_source(src, "DONE", attempts + 1)
+            except Exception as exc:  # noqa: BLE001
+                attempts += 1
+                if attempts >= 5:
+                    done_log_store.update_status_by_source(src, "NEEDS_ATTENTION", attempts)
+                    self.state.attention_items.append(
+                        DocumentItem(
+                            id="attn-" + uuid.uuid4().hex[:8],
+                            source_path=src,
+                            display_name=Path(src).name,
+                            page_count=1,
+                            notes=f"Unable to delete source file after move; locked? dest={dest} attempts={attempts}",
+                            suggested_folder="",
+                            suggested_name="",
+                            confidence=0.0,
+                            vendor="Vendor",
+                            doctype="Other",
+                            number="ATTN",
+                            date_str="00-00-0000",
+                        )
+                    )
+                    self.refresh_all()
+                else:
+                    done_log_store.update_status_by_source(src, "PENDING_DELETE", attempts)
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
         self.stop_poller()

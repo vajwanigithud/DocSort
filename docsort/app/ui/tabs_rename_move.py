@@ -285,7 +285,16 @@ class RenameMoveTab(QtWidgets.QWidget):
         final_folder = self.folder_dropdown.currentText() or ""
         dest_folder_path = Path(destination_root) / final_folder
         move_service.ensure_dir(str(dest_folder_path))
-        for doc in docs:
+
+        # Release preview aggressively before moves
+        try:
+            self.preview.clear()
+            self.preview.force_release_document()
+            QtWidgets.QApplication.processEvents()
+        except Exception:
+            pass
+
+        for doc in list(docs):
             final_name = self._final_filename_for_doc(doc)
             chosen_option = "MANUAL" if doc.id in self._manual_overrides else "A"
             dest_path = dest_folder_path / final_name
@@ -308,59 +317,46 @@ class RenameMoveTab(QtWidgets.QWidget):
                 continue
 
             logger.info("Confirm Move paths: src=%s dst=%s", doc.source_path, dest_path)
-            # Release any PDF locks held by preview before moving.
-            try:
+            moved = self._move_with_retry(doc.source_path, dest_path)
+            if moved:
+                done_log_store.append_done(
+                    {
+                        "item_id": doc.id,
+                        "src": doc.source_path,
+                        "dest": str(dest_path),
+                        "display_name": doc.display_name,
+                        "folder": final_folder,
+                        "final_filename": final_name,
+                        "status": "PENDING_DELETE",
+                        "delete_attempts": 0,
+                    }
+                )
+                note_prefix = f"{doc.notes} ".strip()
+                doc.notes = f"{note_prefix}dest={dest_path}"
+                removed = self.state.move_between_named_lists("rename_items", "done_items", doc.id)
+                if not removed:
+                    try:
+                        self.state.rename_items = [d for d in self.state.rename_items if d.id != doc.id]
+                        self.state.done_items.append(doc)
+                    except Exception:
+                        logger.warning("Failed to adjust state lists for %s", doc.id)
+                self._manual_overrides.pop(doc.id, None)
+                with QtCore.QSignalBlocker(self.list_widget):
+                    for i in range(self.list_widget.count()):
+                        item = self.list_widget.item(i)
+                        if item and item.data(QtCore.Qt.UserRole).id == doc.id:
+                            self.list_widget.takeItem(i)
+                            break
+                    self.list_widget.clearSelection()
                 self.preview.clear()
-                self.preview.force_release_document()
-                QtWidgets.QApplication.processEvents()
-                QtCore.QThread.msleep(50)
-            except Exception:
-                pass
-            try:
-                moved = self._move_with_retry(doc.source_path, dest_path)
-                if moved:
-                    undo_store.append_undo({"original_src": doc.source_path, "moved_dest": str(dest_path)})
-                    note_prefix = f"{doc.notes} ".strip()
-                    doc.notes = f"{note_prefix}dest={dest_path}"
-                    # Robust move to done list
-                    removed = self.state.move_between_named_lists("rename_items", "done_items", doc.id)
-                    if not removed:
-                        try:
-                            self.state.rename_items = [d for d in self.state.rename_items if d.id != doc.id]
-                            self.state.done_items.append(doc)
-                        except Exception:
-                            logger.warning("Failed to adjust state lists for %s", doc.id)
-                    self._manual_overrides.pop(doc.id, None)
-                    # Remove from UI list immediately
-                    with QtCore.QSignalBlocker(self.list_widget):
-                        for i in range(self.list_widget.count()):
-                            item = self.list_widget.item(i)
-                            if item and item.data(QtCore.Qt.UserRole).id == doc.id:
-                                self.list_widget.takeItem(i)
-                                break
-                        self.list_widget.clearSelection()
-                    self.preview.clear()
-                    self.preview_label.setText("Preview")
-                    done_log_store.append_done(
-                        {
-                            "item_id": doc.id,
-                            "src": doc.source_path,
-                            "dest": str(dest_path),
-                            "display_name": doc.display_name,
-                            "folder": final_folder,
-                            "final_filename": final_name,
-                        }
-                    )
-                    logger.info("Confirm Move succeeded for %s", doc.display_name)
-                else:
-                    error_note = "move failed"
-                    note_prefix = f"{doc.notes} ".strip()
-                    doc.notes = f"{note_prefix}move_error={error_note}"
-                    self.warning_label.setText(f"Move failed for {doc.display_name}: {error_note}")
-                    logger.warning("Confirm Move failed for %s", doc.display_name)
-            except Exception as exc:  # noqa: BLE001
-                logger.exception("Confirm Move failed")
-                self.warning_label.setText(f"Move failed for {doc.display_name}: {exc}")
+                self.preview_label.setText("Preview")
+                logger.info("Confirm Move succeeded for %s", doc.display_name)
+            else:
+                error_note = "move failed"
+                note_prefix = f"{doc.notes} ".strip()
+                doc.notes = f"{note_prefix}move_error={error_note}"
+                self.warning_label.setText(f"Move failed for {doc.display_name}: {error_note}")
+                logger.warning("Confirm Move failed for %s", doc.display_name)
         self.refresh_all()
 
     def _move_with_retry(self, src: str, dest: Path) -> bool:
