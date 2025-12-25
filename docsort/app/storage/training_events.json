@@ -169,5 +169,23 @@
     "final_folder": "Invoice",
     "destination_root": "C:/Users/User/Desktop/Sorting",
     "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-25T13:34:04",
+    "item_id": "scan-a6cb5962",
+    "chosen_option": "MANUAL",
+    "final_filename": "Invoice_5329.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-25T13:37:40",
+    "item_id": "scan-af2c7c04",
+    "chosen_option": "MANUAL",
+    "final_filename": "Invoice_5329.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
   }
 ]

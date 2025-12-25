@@ -11,6 +11,7 @@ from PySide6 import QtCore, QtWidgets
 
 from docsort.app.core.state import AppState, DocumentItem
 from docsort.app.services import move_service, naming_service, training_store, undo_store, pdf_utils
+from docsort.app.services.pdf_utils import detect_doc_fields_from_pdf
 from docsort.app.services.folder_service import FolderService
 from docsort.app.storage import settings_store, done_log_store
 from docsort.app.ui.pdf_preview_widget import PdfPreviewWidget
@@ -30,6 +31,7 @@ class RenameMoveTab(QtWidgets.QWidget):
         self._last_preview_path: Optional[str] = None
         self._active_moves = 0
         self._active_worker: Optional[MoveWorker] = None
+        self._active_thread: Optional[QtCore.QThread] = None
         self._suggest_cache: Dict[str, str] = {}
         self._build_ui()
 
@@ -193,7 +195,12 @@ class RenameMoveTab(QtWidgets.QWidget):
         if key in self._suggest_cache:
             return self._suggest_cache[key]
         fallback_stem = self._build_fallback_stem(doc, folder_name)
-        suggested = pdf_utils.build_suggested_filename(doc.source_path, fallback_stem)
+        if doc.doctype and doc.number:
+            suggested = f"{doc.doctype.title()}_{doc.number}"
+            if not suggested.lower().endswith(".pdf"):
+                suggested = f"{suggested}.pdf"
+        else:
+            suggested = pdf_utils.build_suggested_filename(doc.source_path, fallback_stem)
         self._suggest_cache[key] = suggested
         return suggested
 
@@ -252,8 +259,22 @@ class RenameMoveTab(QtWidgets.QWidget):
             ok = self.preview.load_pdf(str(path))
             if ok:
                 self.preview.set_page(0)
-                self.preview_label.setText(f"Preview — {doc.display_name}")
+                self.preview_label.setText(f"Preview - {doc.display_name}")
                 logger.info("Rename preview loaded: %s", path)
+                doctype, number, detected_date, err = detect_doc_fields_from_pdf(str(path))
+                changed = False
+                if doctype:
+                    changed = changed or (doc.doctype != doctype)
+                    doc.doctype = doctype
+                if number:
+                    changed = changed or (doc.number != number)
+                    doc.number = number
+                if doctype or number:
+                    logger.info("Auto-detected fields: doctype=%s number=%s date=%s path=%s", doctype, number, detected_date, path)
+                if err:
+                    logger.debug("Auto-detect text error for %s: %s", path, err)
+                if changed:
+                    QtCore.QTimer.singleShot(0, self._update_preview)
             else:
                 self.preview.clear()
                 self.preview_label.setText("Preview unavailable")
@@ -448,6 +469,9 @@ class RenameMoveTab(QtWidgets.QWidget):
             return False
 
     def _start_async_move(self, doc: DocumentItem, dest_path: Path, final_folder: str, final_name: str) -> None:
+        if self._active_thread and self._active_thread.isRunning():
+            logger.warning("Move already running; skipping new request.")
+            return
         self._active_moves += 1
         self.confirm_btn.setEnabled(False)
         self.bulk_confirm_btn.setEnabled(False)
@@ -457,24 +481,27 @@ class RenameMoveTab(QtWidgets.QWidget):
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
         self._active_worker = worker
+        self._active_thread = thread
 
-        def cleanup_thread():
-            thread.quit()
-            worker.deleteLater()
-            thread.deleteLater()
-            self._active_worker = None
-
-        worker.finished.connect(lambda *_: cleanup_thread())
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
         worker.finished.connect(self._on_move_finished)
+        thread.finished.connect(thread.deleteLater)
+
+        def _clear_refs():
+            self._active_thread = None
+            self._active_worker = None
+            if self._active_moves == 0:
+                self.confirm_btn.setEnabled(True)
+                self.bulk_confirm_btn.setEnabled(True)
+
+        thread.finished.connect(_clear_refs)
+
         thread.start()
 
     @QtCore.Slot(bool, str, str, str, str, str, str, str)
     def _on_move_finished(self, success: bool, msg: str, src: str, dest: str, doc_id: str, final_folder: str, final_name: str, status: str) -> None:
         self._active_moves = max(0, self._active_moves - 1)
-        if self._active_moves == 0:
-            self.confirm_btn.setEnabled(True)
-            self.bulk_confirm_btn.setEnabled(True)
-
         if success:
             doc = next((d for d in self.state.rename_items if d.id == doc_id), None)
             if doc:
@@ -515,3 +542,14 @@ class RenameMoveTab(QtWidgets.QWidget):
         else:
             self.warning_label.setText(f"Move failed: {msg}")
             logger.warning("Move failed (async) src=%s dest=%s msg=%s", src, dest, msg)
+
+    def closeEvent(self, event) -> None:  # type: ignore[override]
+        try:
+            if self._active_thread and self._active_thread.isRunning():
+                self._active_thread.quit()
+                self._active_thread.wait(1000)
+        except Exception:
+            pass
+        self._active_thread = None
+        self._active_worker = None
+        super().closeEvent(event)
