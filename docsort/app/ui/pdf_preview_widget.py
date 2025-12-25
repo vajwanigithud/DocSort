@@ -70,6 +70,35 @@ class PdfPreviewWidget(QtWidgets.QWidget):
         logger.info("PDF preview cleared")
         self.release_document()
 
+    def force_release_document(self) -> None:
+        logger.info("PDF preview force release")
+        try:
+            self.view.setDocument(None)
+        except Exception:
+            pass
+        try:
+            self.document.statusChanged.disconnect(self._on_status_changed)  # type: ignore[attr-defined]
+        except Exception:
+            pass
+        try:
+            self.document.close()
+        except Exception:
+            pass
+        try:
+            self.document.deleteLater()
+        except Exception:
+            pass
+        QtWidgets.QApplication.processEvents()
+        self.document = QPdfDocument(self)
+        self.view.setDocument(self.document)
+        self.view.setPageMode(QPdfView.PageMode.SinglePage)
+        try:
+            self.document.statusChanged.connect(self._on_status_changed)  # type: ignore[attr-defined]
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("PDF preview: statusChanged connect failed after force release: %s", exc)
+        self._pending_page = None
+        self._current_path = None
+
     @QtCore.Slot("QPdfDocument::Status")
     def _on_status_changed(self, status) -> None:
         logger.info("PDF preview statusChanged: %s path=%s", status, self._current_path)

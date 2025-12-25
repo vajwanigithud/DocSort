@@ -2362,3 +2362,137 @@ PermissionError: [WinError 32] The process cannot access the file because it is 
 2025-12-25 14:22:54,013 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
 2025-12-25 14:24:30,702 [INFO] docsort.app.ui.main_window: Scheduling poller stop
 2025-12-25 14:24:30,703 [INFO] docsort.app.services.source_poller: Source poller stop requested for C:\Users\User\Desktop\Scanned Files
+2025-12-25 14:28:13,488 [INFO] docsort.app.utils.logging_setup: Logging configured. File: C:\DocSort\docsort\app\storage\app.log
+2025-12-25 14:28:13,527 [DEBUG] docsort.app.storage.settings_store: get_watcher_enabled -> True
+2025-12-25 14:28:13,528 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:28:13,529 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:28:13,565 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-25 14:28:13,579 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-25 14:28:13,588 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:28:13,591 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:28:13,592 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 14:28:13,593 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 14:28:13,593 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 14:28:13,594 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 14:28:13,596 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:28:13,597 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:28:15,866 [INFO] docsort.app.ui.main_window: Scheduling poller start at C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:28:15,867 [INFO] docsort.app.services.source_poller: Source poller started for C:\Users\User\Desktop\Scanned Files
+2025-12-25 14:28:16,109 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=1 path=C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf
+2025-12-25 14:28:16,119 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=29 path=C:\Users\User\Desktop\Scanned Files\Receipt_2025-12-23_102918.pdf
+2025-12-25 14:28:16,120 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:28:16,122 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:28:16,124 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 14:28:16,124 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 14:28:16,124 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 14:28:16,125 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 14:28:16,127 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:28:16,128 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:28:19,694 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:28:19,695 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:28:19,697 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 14:28:19,697 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 14:28:19,697 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 14:28:19,698 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 14:28:19,700 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:28:19,701 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:28:21,045 [INFO] docsort.app.ui.tabs_rename_move: Rename preview load start: C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf
+2025-12-25 14:28:21,046 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Loading path=C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf
+2025-12-25 14:28:21,056 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Ready path=C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf
+2025-12-25 14:28:21,056 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview ready path=C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf pageCount=1
+2025-12-25 14:28:21,056 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 14:28:21,057 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview load started path=C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf status=Error.None_
+2025-12-25 14:28:21,057 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 14:28:21,058 [INFO] docsort.app.ui.tabs_rename_move: Rename preview loaded: C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf
+2025-12-25 14:28:23,950 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move clicked
+2025-12-25 14:28:23,951 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:28:23,951 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move begin: rename_items=3 done_items=0
+2025-12-25 14:28:23,953 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move paths: src=C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf dst=C:\Users\User\Desktop\Sorting\Invoice\sdfsdf.pdf
+2025-12-25 14:28:23,954 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 14:28:23,955 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 14:28:23,955 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 14:28:24,013 [INFO] docsort.app.ui.tabs_rename_move: Move retry 1 for C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf due to: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\User\\Desktop\\Scanned Files\\dd66733d-b4de-4838-b595-7e88420604e8.pdf' -> 'C:\\Users\\User\\Desktop\\Sorting\\Invoice\\sdfsdf.pdf'
+2025-12-25 14:28:24,224 [INFO] docsort.app.ui.tabs_rename_move: Move retry 2 for C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf due to: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\User\\Desktop\\Scanned Files\\dd66733d-b4de-4838-b595-7e88420604e8.pdf' -> 'C:\\Users\\User\\Desktop\\Sorting\\Invoice\\sdfsdf.pdf'
+2025-12-25 14:28:24,640 [INFO] docsort.app.ui.tabs_rename_move: Move retry 3 for C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf due to: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\User\\Desktop\\Scanned Files\\dd66733d-b4de-4838-b595-7e88420604e8.pdf' -> 'C:\\Users\\User\\Desktop\\Sorting\\Invoice\\sdfsdf.pdf'
+2025-12-25 14:28:25,445 [INFO] docsort.app.ui.tabs_rename_move: Move retry 4 for C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf due to: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\User\\Desktop\\Scanned Files\\dd66733d-b4de-4838-b595-7e88420604e8.pdf' -> 'C:\\Users\\User\\Desktop\\Sorting\\Invoice\\sdfsdf.pdf'
+2025-12-25 14:28:27,049 [INFO] docsort.app.ui.tabs_rename_move: Move retry 5 for C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf due to: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\User\\Desktop\\Scanned Files\\dd66733d-b4de-4838-b595-7e88420604e8.pdf' -> 'C:\\Users\\User\\Desktop\\Sorting\\Invoice\\sdfsdf.pdf'
+2025-12-25 14:29:50,588 [INFO] docsort.app.ui.main_window: Scheduling poller stop
+2025-12-25 14:29:50,589 [INFO] docsort.app.services.source_poller: Source poller stop requested for C:\Users\User\Desktop\Scanned Files
+2025-12-25 14:29:50,992 [INFO] docsort.app.services.source_poller: Source poller thread exiting for C:\Users\User\Desktop\Scanned Files
+2025-12-25 14:29:56,406 [WARNING] docsort.app.ui.tabs_rename_move: Fallback copy+delete failed: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\User\\Desktop\\Scanned Files\\dd66733d-b4de-4838-b595-7e88420604e8.pdf'
+2025-12-25 14:29:56,406 [WARNING] docsort.app.ui.tabs_rename_move: Confirm Move failed for dd66733d-b4de-4838-b595-7e88420604e8.pdf
+2025-12-25 14:29:56,407 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:29:56,410 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:29:56,414 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:29:56,415 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:30:05,501 [INFO] docsort.app.utils.logging_setup: Logging configured. File: C:\DocSort\docsort\app\storage\app.log
+2025-12-25 14:30:05,550 [DEBUG] docsort.app.storage.settings_store: get_watcher_enabled -> True
+2025-12-25 14:30:05,551 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:30:05,552 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:30:05,593 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-25 14:30:05,609 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-25 14:30:05,620 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:30:05,622 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:30:05,623 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 14:30:05,624 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 14:30:05,624 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 14:30:05,624 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 14:30:05,626 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:30:05,627 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:30:18,412 [INFO] docsort.app.ui.main_window: Scheduling poller start at C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:30:18,413 [INFO] docsort.app.services.source_poller: Source poller started for C:\Users\User\Desktop\Scanned Files
+2025-12-25 14:30:18,636 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=1 path=C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf
+2025-12-25 14:30:18,648 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=29 path=C:\Users\User\Desktop\Scanned Files\Receipt_2025-12-23_102918.pdf
+2025-12-25 14:30:18,649 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:30:18,650 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:30:18,651 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 14:30:18,652 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 14:30:18,652 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 14:30:18,652 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 14:30:18,654 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:30:18,655 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:30:52,632 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move clicked
+2025-12-25 14:30:52,633 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:30:52,634 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move begin: rename_items=2 done_items=0
+2025-12-25 14:30:52,636 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:30:52,638 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:30:52,640 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 14:30:52,641 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 14:30:52,641 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 14:30:52,641 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 14:30:52,643 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:30:52,645 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:31:01,807 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:31:01,808 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:31:01,810 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 14:31:01,810 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 14:31:01,810 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 14:31:01,811 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 14:31:01,812 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:31:01,813 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:31:03,058 [INFO] docsort.app.ui.tabs_rename_move: Rename preview load start: C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf
+2025-12-25 14:31:03,060 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Loading path=C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf
+2025-12-25 14:31:03,067 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Ready path=C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf
+2025-12-25 14:31:03,067 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview ready path=C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf pageCount=1
+2025-12-25 14:31:03,068 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 14:31:03,068 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview load started path=C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf status=Error.None_
+2025-12-25 14:31:03,068 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 14:31:03,069 [INFO] docsort.app.ui.tabs_rename_move: Rename preview loaded: C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf
+2025-12-25 14:31:11,248 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move clicked
+2025-12-25 14:31:11,249 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:31:11,249 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move begin: rename_items=2 done_items=1
+2025-12-25 14:31:11,265 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move paths: src=C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf dst=C:\Users\User\Desktop\Sorting\Invoice\123456.pdf
+2025-12-25 14:31:11,265 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 14:31:11,266 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 14:31:11,267 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview force release
+2025-12-25 14:31:11,332 [INFO] docsort.app.ui.tabs_rename_move: Move retry 1 for C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf due to: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\User\\Desktop\\Scanned Files\\dd66733d-b4de-4838-b595-7e88420604e8.pdf' -> 'C:\\Users\\User\\Desktop\\Sorting\\Invoice\\123456.pdf'
+2025-12-25 14:31:11,534 [INFO] docsort.app.ui.tabs_rename_move: Move retry 2 for C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf due to: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\User\\Desktop\\Scanned Files\\dd66733d-b4de-4838-b595-7e88420604e8.pdf' -> 'C:\\Users\\User\\Desktop\\Sorting\\Invoice\\123456.pdf'
+2025-12-25 14:31:11,942 [INFO] docsort.app.ui.tabs_rename_move: Move retry 3 for C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf due to: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\User\\Desktop\\Scanned Files\\dd66733d-b4de-4838-b595-7e88420604e8.pdf' -> 'C:\\Users\\User\\Desktop\\Sorting\\Invoice\\123456.pdf'
+2025-12-25 14:31:12,754 [INFO] docsort.app.ui.tabs_rename_move: Move retry 4 for C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf due to: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\User\\Desktop\\Scanned Files\\dd66733d-b4de-4838-b595-7e88420604e8.pdf' -> 'C:\\Users\\User\\Desktop\\Sorting\\Invoice\\123456.pdf'
+2025-12-25 14:31:14,363 [INFO] docsort.app.ui.tabs_rename_move: Move retry 5 for C:\Users\User\Desktop\Scanned Files\dd66733d-b4de-4838-b595-7e88420604e8.pdf due to: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\User\\Desktop\\Scanned Files\\dd66733d-b4de-4838-b595-7e88420604e8.pdf' -> 'C:\\Users\\User\\Desktop\\Sorting\\Invoice\\123456.pdf'
+2025-12-25 14:32:43,676 [WARNING] docsort.app.ui.tabs_rename_move: Fallback copy+delete failed: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\User\\Desktop\\Scanned Files\\dd66733d-b4de-4838-b595-7e88420604e8.pdf'
+2025-12-25 14:32:43,677 [WARNING] docsort.app.ui.tabs_rename_move: Confirm Move failed for dd66733d-b4de-4838-b595-7e88420604e8.pdf
+2025-12-25 14:32:43,678 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:32:43,680 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 14:32:43,683 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 14:32:43,684 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting

@@ -124,5 +124,32 @@
     "final_folder": "Invoice",
     "destination_root": "C:/Users/User/Desktop/Sorting",
     "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-25T10:28:23",
+    "item_id": "scan-83e4b64a",
+    "chosen_option": "MANUAL",
+    "final_filename": "sdfsdf.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-25T10:30:52",
+    "item_id": "rename-001",
+    "chosen_option": "A",
+    "final_filename": "VendorD_Receipt_REN-001_15-01-2025.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": ""
+  },
+  {
+    "timestamp": "2025-12-25T10:31:11",
+    "item_id": "scan-0b518aa6",
+    "chosen_option": "MANUAL",
+    "final_filename": "123456.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
   }
 ]

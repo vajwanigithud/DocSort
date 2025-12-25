@@ -311,7 +311,7 @@ class RenameMoveTab(QtWidgets.QWidget):
             # Release any PDF locks held by preview before moving.
             try:
                 self.preview.clear()
-                self.preview.release_document()
+                self.preview.force_release_document()
                 QtWidgets.QApplication.processEvents()
                 QtCore.QThread.msleep(50)
             except Exception:
@@ -369,7 +369,8 @@ class RenameMoveTab(QtWidgets.QWidget):
         except Exception as exc:  # noqa: BLE001
             logger.warning("Failed to create destination dir %s: %s", dest.parent, exc)
         same_drive = Path(src).drive == dest.drive
-        for attempt in range(5):
+        backoffs = [0.2, 0.4, 0.8, 1.6, 2.0]
+        for attempt in range(1, len(backoffs) + 1):
             try:
                 if same_drive:
                     os.replace(src, dest)
@@ -382,9 +383,10 @@ class RenameMoveTab(QtWidgets.QWidget):
                     raise IOError("Source still exists after move")
                 return True
             except PermissionError as exc:
-                if "WinError 32" in str(exc) and attempt < 4:
+                if "WinError 32" in str(exc) and attempt <= len(backoffs):
+                    logger.info("Move retry %s for %s due to: %s", attempt, src, exc)
                     QtWidgets.QApplication.processEvents()
-                    QtCore.QThread.msleep(200 * (attempt + 1))
+                    QtCore.QThread.msleep(int(backoffs[attempt - 1] * 1000))
                     continue
                 raise
             except Exception:
