@@ -12,6 +12,7 @@ from docsort.app.services import move_service, naming_service, training_store, u
 from docsort.app.services.folder_service import FolderService
 from docsort.app.storage import settings_store, done_log_store
 from docsort.app.ui.pdf_preview_widget import PdfPreviewWidget
+from docsort.app.ui.move_worker import MoveWorker
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,8 @@ class RenameMoveTab(QtWidgets.QWidget):
         self._manual_overrides: Dict[str, str] = {}
         self._preview_loading: bool = False
         self._last_preview_path: Optional[str] = None
+        self._active_moves = 0
+        self._active_worker: Optional[MoveWorker] = None
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -317,47 +320,7 @@ class RenameMoveTab(QtWidgets.QWidget):
                 continue
 
             logger.info("Confirm Move paths: src=%s dst=%s", doc.source_path, dest_path)
-            moved = self._move_with_retry(doc.source_path, dest_path)
-            if moved:
-                done_log_store.append_done(
-                    {
-                        "item_id": doc.id,
-                        "src": doc.source_path,
-                        "dest": str(dest_path),
-                        "display_name": doc.display_name,
-                        "folder": final_folder,
-                        "final_filename": final_name,
-                        "status": "PENDING_DELETE",
-                        "delete_attempts": 0,
-                    }
-                )
-                note_prefix = f"{doc.notes} ".strip()
-                doc.notes = f"{note_prefix}dest={dest_path}"
-                removed = self.state.move_between_named_lists("rename_items", "done_items", doc.id)
-                if not removed:
-                    try:
-                        self.state.rename_items = [d for d in self.state.rename_items if d.id != doc.id]
-                        self.state.done_items.append(doc)
-                    except Exception:
-                        logger.warning("Failed to adjust state lists for %s", doc.id)
-                self._manual_overrides.pop(doc.id, None)
-                with QtCore.QSignalBlocker(self.list_widget):
-                    for i in range(self.list_widget.count()):
-                        item = self.list_widget.item(i)
-                        if item and item.data(QtCore.Qt.UserRole).id == doc.id:
-                            self.list_widget.takeItem(i)
-                            break
-                    self.list_widget.clearSelection()
-                self.preview.clear()
-                self.preview_label.setText("Preview")
-                logger.info("Confirm Move succeeded for %s", doc.display_name)
-            else:
-                error_note = "move failed"
-                note_prefix = f"{doc.notes} ".strip()
-                doc.notes = f"{note_prefix}move_error={error_note}"
-                self.warning_label.setText(f"Move failed for {doc.display_name}: {error_note}")
-                logger.warning("Confirm Move failed for %s", doc.display_name)
-        self.refresh_all()
+            self._start_async_move(doc, dest_path, final_folder, final_name)
 
     def _move_with_retry(self, src: str, dest: Path) -> bool:
         try:
@@ -410,3 +373,72 @@ class RenameMoveTab(QtWidgets.QWidget):
         except Exception as exc:  # noqa: BLE001
             logger.warning("Fallback copy+delete failed: %s", exc)
             return False
+
+    def _start_async_move(self, doc: DocumentItem, dest_path: Path, final_folder: str, final_name: str) -> None:
+        self._active_moves += 1
+        self.confirm_btn.setEnabled(False)
+        self.bulk_confirm_btn.setEnabled(False)
+        self.warning_label.setText("Moving...")
+        worker = MoveWorker(doc.source_path, str(dest_path), Path(doc.source_path).drive == dest_path.drive, final_folder, final_name, doc.id)
+        thread = QtCore.QThread(self)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        self._active_worker = worker
+
+        def cleanup_thread():
+            thread.quit()
+            worker.deleteLater()
+            thread.deleteLater()
+            self._active_worker = None
+
+        worker.finished.connect(lambda *_: cleanup_thread())
+        worker.finished.connect(self._on_move_finished)
+        thread.start()
+
+    @QtCore.Slot(bool, str, str, str, str, str, str, str)
+    def _on_move_finished(self, success: bool, msg: str, src: str, dest: str, doc_id: str, final_folder: str, final_name: str, status: str) -> None:
+        self._active_moves = max(0, self._active_moves - 1)
+        if self._active_moves == 0:
+            self.confirm_btn.setEnabled(True)
+            self.bulk_confirm_btn.setEnabled(True)
+
+        if success:
+            doc = next((d for d in self.state.rename_items if d.id == doc_id), None)
+            if doc:
+                note_prefix = f"{doc.notes} ".strip()
+                doc.notes = f"{note_prefix}dest={dest}"
+                removed = self.state.move_between_named_lists("rename_items", "done_items", doc.id)
+                if not removed:
+                    try:
+                        self.state.rename_items = [d for d in self.state.rename_items if d.id != doc.id]
+                        self.state.done_items.append(doc)
+                    except Exception:
+                        logger.warning("State adjustment failed for %s", doc.id)
+                self._manual_overrides.pop(doc.id, None)
+            with QtCore.QSignalBlocker(self.list_widget):
+                for i in range(self.list_widget.count()):
+                    item = self.list_widget.item(i)
+                    if item and item.data(QtCore.Qt.UserRole).id == doc_id:
+                        self.list_widget.takeItem(i)
+                        break
+                self.list_widget.clearSelection()
+            self.preview.clear()
+            self.preview_label.setText("Preview")
+            done_log_store.append_done(
+                {
+                    "item_id": doc_id,
+                    "src": src,
+                    "dest": dest,
+                    "display_name": final_name,
+                    "folder": final_folder,
+                    "final_filename": final_name,
+                    "status": status if status else "PENDING_DELETE",
+                    "delete_attempts": 0,
+                    "last_error": "WinError 32 lock" if status == "PENDING_DELETE" else "",
+                }
+            )
+            logger.info("Move success (async) src=%s dest=%s status=%s", src, dest, status)
+            self.refresh_all()
+        else:
+            self.warning_label.setText(f"Move failed: {msg}")
+            logger.warning("Move failed (async) src=%s dest=%s msg=%s", src, dest, msg)

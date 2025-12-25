@@ -160,5 +160,14 @@
     "final_folder": "Invoice",
     "destination_root": "C:/Users/User/Desktop/Sorting",
     "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-25T11:02:14",
+    "item_id": "scan-cd1c1a8e",
+    "chosen_option": "MANUAL",
+    "final_filename": "test1.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
   }
 ]

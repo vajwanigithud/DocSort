@@ -64,7 +64,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._pending_timer.start(250)
         self._delete_timer = QtCore.QTimer(self)
         self._delete_timer.timeout.connect(self._process_pending_deletes)
-        self._delete_timer.start(8000)
+        self._delete_timer.start(2000)
         self.refresh_all()
 
     def refresh_all(self) -> None:
@@ -129,25 +129,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 break
             resolved = str(Path(path).resolve())
             if not any(str(Path(d.source_path).resolve()) == resolved for d in self.state.scanned_items):
-                # Skip items already moved
                 if resolved in done_log_store.seen_sources():
-                    self.state.attention_items.append(
-                        DocumentItem(
-                            id="attn-" + uuid.uuid4().hex[:8],
-                            source_path=resolved,
-                            display_name=Path(path).name,
-                            page_count=1,
-                            notes="already moved source present",
-                            suggested_folder="",
-                            suggested_name="",
-                            confidence=0.0,
-                            vendor="Vendor",
-                            doctype="Other",
-                            number="ATTN",
-                            date_str="00-00-0000",
-                        )
-                    )
-                    added = True
                     continue
                 page_count = 1
                 notes = "watcher"
@@ -216,45 +198,61 @@ class MainWindow(QtWidgets.QMainWindow):
             self.refresh_all()
 
     def _process_pending_deletes(self) -> None:
-        pending = done_log_store.entries_by_status("PENDING_DELETE")
-        for ev in pending:
+        pending = done_log_store.list_entries("PENDING_DELETE")
+        updated = False
+        # Limit batch size to avoid UI hiccups
+        for ev in pending[:5]:
             src = ev.get("src")
             dest = ev.get("dest")
             attempts = int(ev.get("delete_attempts", 0))
             if not src:
                 continue
-            if not Path(dest).exists():
-                done_log_store.update_status_by_source(src, "DONE", attempts)
+            src_path = Path(src)
+            dest_path = Path(dest) if dest else None
+            if dest_path and not dest_path.exists():
+                done_log_store.update_entry_status(ev, "DONE", attempts, last_error="dest_missing")
+                updated = True
                 continue
-            if not Path(src).exists():
-                done_log_store.update_status_by_source(src, "DONE", attempts)
+            if not src_path.exists():
+                done_log_store.update_entry_status(ev, "DONE", attempts, last_error="")
+                updated = True
                 continue
             try:
-                Path(src).unlink()
-                done_log_store.update_status_by_source(src, "DONE", attempts + 1)
+                src_path.unlink()
+                done_log_store.update_entry_status(ev, "DONE", attempts, last_error="")
+                updated = True
             except Exception as exc:  # noqa: BLE001
                 attempts += 1
-                if attempts >= 5:
-                    done_log_store.update_status_by_source(src, "NEEDS_ATTENTION", attempts)
-                    self.state.attention_items.append(
-                        DocumentItem(
-                            id="attn-" + uuid.uuid4().hex[:8],
-                            source_path=src,
-                            display_name=Path(src).name,
-                            page_count=1,
-                            notes=f"Unable to delete source file after move; locked? dest={dest} attempts={attempts}",
-                            suggested_folder="",
-                            suggested_name="",
-                            confidence=0.0,
-                            vendor="Vendor",
-                            doctype="Other",
-                            number="ATTN",
-                            date_str="00-00-0000",
+                last_err = str(exc)
+                if attempts >= 10:
+                    done_log_store.update_entry_status(ev, "NEEDS_ATTENTION", attempts, last_error=last_err)
+                    exists = any(Path(a.source_path).resolve() == src_path.resolve() for a in self.state.attention_items)
+                    if not exists:
+                        self.state.attention_items.append(
+                            DocumentItem(
+                                id="attn-" + uuid.uuid4().hex[:8],
+                                source_path=src,
+                                display_name=src_path.name,
+                                page_count=1,
+                                notes=f"Unable to delete source file after move; locked? dest={dest} attempts={attempts}",
+                                suggested_folder="",
+                                suggested_name="",
+                                confidence=0.0,
+                                vendor="Vendor",
+                                doctype="Other",
+                                number="ATTN",
+                                date_str="00-00-0000",
+                            )
                         )
-                    )
-                    self.refresh_all()
+                    updated = True
                 else:
-                    done_log_store.update_status_by_source(src, "PENDING_DELETE", attempts)
+                    done_log_store.update_entry_status(ev, "PENDING_DELETE", attempts, last_error=last_err)
+                    updated = True
+        if updated:
+            if hasattr(self.done_tab, "refresh"):
+                self.done_tab.refresh()
+            if hasattr(self.attention_tab, "refresh"):
+                self.attention_tab.refresh()
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
         self.stop_poller()

@@ -56,6 +56,9 @@ class DoneTab(QtWidgets.QWidget):
             f"Folder: {ev.get('folder','')}",
             f"Filename: {ev.get('final_filename','')}",
             f"Item ID: {ev.get('item_id','')}",
+            f"Status: {ev.get('status','')}",
+            f"Delete attempts: {ev.get('delete_attempts','')}",
+            f"Last error: {ev.get('last_error','')}",
         ]
         self.details.setPlainText("\n".join(detail_lines))
 
