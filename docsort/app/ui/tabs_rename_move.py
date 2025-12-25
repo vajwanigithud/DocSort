@@ -1,14 +1,16 @@
 import os
+import re
 import shutil
 import time
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
 from PySide6 import QtCore, QtWidgets
 
 from docsort.app.core.state import AppState, DocumentItem
-from docsort.app.services import move_service, naming_service, training_store, undo_store
+from docsort.app.services import move_service, naming_service, training_store, undo_store, pdf_utils
 from docsort.app.services.folder_service import FolderService
 from docsort.app.storage import settings_store, done_log_store
 from docsort.app.ui.pdf_preview_widget import PdfPreviewWidget
@@ -28,6 +30,7 @@ class RenameMoveTab(QtWidgets.QWidget):
         self._last_preview_path: Optional[str] = None
         self._active_moves = 0
         self._active_worker: Optional[MoveWorker] = None
+        self._suggest_cache: Dict[str, str] = {}
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -96,6 +99,7 @@ class RenameMoveTab(QtWidgets.QWidget):
         self.list_widget.itemSelectionChanged.connect(self._sync_fields_from_selection)
         for rb in [self.option_a, self.option_b, self.option_c, self.option_d]:
             rb.toggled.connect(self._update_preview)
+        self.option_c.toggled.connect(self._on_option_c_selected)
         self.manual_edit.textChanged.connect(self._update_preview)
         self.final_field.textEdited.connect(self._on_final_edited)
         self.create_folder_btn.clicked.connect(self._create_folder)
@@ -136,6 +140,63 @@ class RenameMoveTab(QtWidgets.QWidget):
         self.final_field.setText(sanitized)
         self.final_field.blockSignals(False)
 
+    def _sanitize_filename(self, text: str) -> str:
+        cleaned = re.sub(r'[<>:"/\\\\|?*]', "", text)
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        return cleaned
+
+    def _build_fallback_stem(self, doc: DocumentItem, folder_name: str) -> str:
+        try:
+            modified = getattr(doc, "modified_time", None)
+            if isinstance(modified, datetime):
+                dt = modified
+            elif isinstance(modified, str):
+                dt = datetime.fromisoformat(modified)
+            else:
+                dt = datetime.now()
+        except Exception:
+            dt = datetime.now()
+        date_part = dt.strftime("%Y-%m-%d")
+        category = (folder_name or "").strip() or "Uncategorized"
+        source_name = Path(doc.source_path).stem or doc.display_name
+        source_name = re.sub(
+            r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+            "",
+            source_name,
+        )
+        source_name = self._sanitize_filename(source_name)
+        source_name = re.sub(r"\s+", " ", source_name).strip()
+        source_name = source_name[:30]
+        if not source_name:
+            source_name = doc.id or "scan"
+        slug = source_name
+        stem = f"{date_part} - {category} - {slug}"
+        stem = self._sanitize_filename(stem)
+        return stem
+
+    def _on_option_c_selected(self, checked: bool) -> None:
+        if not checked:
+            return
+        doc = self._selected_item()
+        if not doc:
+            return
+        suggested = self._get_suggested_name(doc)
+        with QtCore.QSignalBlocker(self.manual_edit):
+            self.manual_edit.setText(suggested)
+        self._manual_overrides[doc.id] = suggested
+        self._update_preview()
+
+    def _get_suggested_name(self, doc: DocumentItem) -> str:
+        folder_name = self.folder_dropdown.currentText() or ""
+        resolved = str(Path(doc.source_path).resolve())
+        key = f"{resolved}::{folder_name}"
+        if key in self._suggest_cache:
+            return self._suggest_cache[key]
+        fallback_stem = self._build_fallback_stem(doc, folder_name)
+        suggested = pdf_utils.build_suggested_filename(doc.source_path, fallback_stem)
+        self._suggest_cache[key] = suggested
+        return suggested
+
     def _update_preview(self) -> None:
         doc = self._selected_item()
         if not doc:
@@ -144,7 +205,19 @@ class RenameMoveTab(QtWidgets.QWidget):
             self.preview_label.setText("Preview")
             return
         manual_text = self.manual_edit.text().strip()
-        if manual_text:
+        if self.option_c.isChecked():
+            if not manual_text:
+                manual_text = self._get_suggested_name(doc)
+                with QtCore.QSignalBlocker(self.manual_edit):
+                    self.manual_edit.setText(manual_text)
+            manual_name = self._sanitize_filename(manual_text)
+            if not manual_name.lower().endswith(".pdf"):
+                manual_name = f"{manual_name}.pdf"
+            self.preview_field.setText(manual_name)
+            self._manual_overrides[doc.id] = manual_name
+            blocker = QtCore.QSignalBlocker(self.final_field)
+            self.final_field.setText(manual_name)
+        elif manual_text:
             manual_name = naming_service.enforce_no_spaces(manual_text)
             if not manual_name.lower().endswith(".pdf"):
                 manual_name = f"{manual_name}.pdf"
