@@ -1,0 +1,128 @@
+[
+  {
+    "timestamp": "2025-12-25T09:24:56",
+    "item_id": "f6f2fad8112a4de7a0e039c192e11362",
+    "chosen_option": "MANUAL",
+    "final_filename": "Invoice_5431.pdf",
+    "final_folder": "_split_output",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "split_from=Receipt_2025-12-23_102918.pdf range=1-1"
+  },
+  {
+    "timestamp": "2025-12-25T09:29:57",
+    "item_id": "cc1a733cb9f6479793896f8b8ecbc4ed",
+    "chosen_option": "MANUAL",
+    "final_filename": "Invoice_5413.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "split_from=Receipt_2025-12-23_102918.pdf range=2-2"
+  },
+  {
+    "timestamp": "2025-12-25T09:35:23",
+    "item_id": "1c63ce366ebf45f8a9a2aae6e2aa2917",
+    "chosen_option": "MANUAL",
+    "final_filename": "Invoice_5393.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "split_from=Receipt_2025-12-23_102918.pdf range=6-6"
+  },
+  {
+    "timestamp": "2025-12-25T09:40:35",
+    "item_id": "scan-4eca0c9d",
+    "chosen_option": "MANUAL",
+    "final_filename": "Estimate_1016.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-25T09:53:33",
+    "item_id": "scan-3ee37d0f",
+    "chosen_option": "MANUAL",
+    "final_filename": "Estimate_1016.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-25T09:54:59",
+    "item_id": "scan-3ee37d0f",
+    "chosen_option": "MANUAL",
+    "final_filename": "Estimate_1016.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watchermove_error=[WinError 32] The process cannot access the file because it is being used by another process: 'C:\\\\Users\\\\User\\\\Desktop\\\\Scanned Files\\\\dd66733d-b4de-4838-b595-7e88420604e8.pdf' -> 'C:\\\\Users\\\\User\\\\Desktop\\\\Sorting\\\\Invoice\\\\Estimate_1016.pdf'"
+  },
+  {
+    "timestamp": "2025-12-25T09:55:42",
+    "item_id": "scan-d9b78e0d",
+    "chosen_option": "MANUAL",
+    "final_filename": "Estimate_1016.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-25T09:55:46",
+    "item_id": "scan-d9b78e0d",
+    "chosen_option": "MANUAL",
+    "final_filename": "Estimate_1016.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watchermove_error=[WinError 32] The process cannot access the file because it is being used by another process: 'C:\\\\Users\\\\User\\\\Desktop\\\\Scanned Files\\\\dd66733d-b4de-4838-b595-7e88420604e8.pdf' -> 'C:\\\\Users\\\\User\\\\Desktop\\\\Sorting\\\\Invoice\\\\Estimate_1016.pdf'"
+  },
+  {
+    "timestamp": "2025-12-25T09:57:32",
+    "item_id": "scan-d3e4bb10",
+    "chosen_option": "MANUAL",
+    "final_filename": "sfsdfsdf.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-25T09:59:34",
+    "item_id": "scan-046b6f36",
+    "chosen_option": "MANUAL",
+    "final_filename": "gyhguyg.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-25T10:00:43",
+    "item_id": "scan-f49f4322",
+    "chosen_option": "MANUAL",
+    "final_filename": "gjyhg.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-25T10:02:39",
+    "item_id": "scan-5ee92585",
+    "chosen_option": "MANUAL",
+    "final_filename": "kjuhikuh.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-25T10:04:23",
+    "item_id": "scan-f79f5ab0",
+    "chosen_option": "MANUAL",
+    "final_filename": "sdfsfsdf.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-25T10:22:51",
+    "item_id": "scan-0c9f14f9",
+    "chosen_option": "MANUAL",
+    "final_filename": "123123.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
+  }
+]
