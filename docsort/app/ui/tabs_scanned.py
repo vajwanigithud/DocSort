@@ -6,7 +6,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from docsort.app.core.state import AppState, DocumentItem
 from docsort.app.services import pdf_utils, routing_service
-from docsort.app.storage import settings_store
+from docsort.app.storage import settings_store, split_completion_store
 from docsort.app.ui.pdf_preview_widget import PdfPreviewWidget
 
 
@@ -39,6 +39,13 @@ class ScannedTab(QtWidgets.QWidget):
         main_layout.addLayout(header)
 
         layout = QtWidgets.QHBoxLayout()
+        header_controls = QtWidgets.QHBoxLayout()
+        self.show_completed = QtWidgets.QCheckBox("Show completed")
+        self.show_completed.setChecked(False)
+        header_controls.addWidget(self.show_completed)
+        header_controls.addStretch()
+        main_layout.addLayout(header_controls)
+
         self.list_widget = QtWidgets.QListWidget()
         layout.addWidget(self.list_widget, 1)
 
@@ -75,6 +82,7 @@ class ScannedTab(QtWidgets.QWidget):
         self.refresh_btn.clicked.connect(self._refresh_from_source)
         self.start_monitor_btn.clicked.connect(self.start_monitor_cb)
         self.stop_monitor_btn.clicked.connect(self.stop_monitor_cb)
+        self.show_completed.toggled.connect(self.refresh)
         main_layout.addLayout(layout)
 
     def _selected_item(self) -> DocumentItem | None:
@@ -109,7 +117,12 @@ class ScannedTab(QtWidgets.QWidget):
         self.source_label.setText(source_root or "Not set")
         self.warning_label.setVisible(not bool(source_root))
         self.list_widget.clear()
+        show_completed = self.show_completed.isChecked()
         for doc in self.state.scanned_items:
+            path = Path(doc.source_path)
+            split_completion_store.prune_if_changed(path)
+            if not show_completed and split_completion_store.is_split_complete(path):
+                continue
             item = QtWidgets.QListWidgetItem(f"{doc.display_name} ({doc.page_count}p)")
             item.setData(QtCore.Qt.UserRole, doc)
             self.list_widget.addItem(item)
@@ -129,8 +142,12 @@ class ScannedTab(QtWidgets.QWidget):
         existing_paths = {Path(doc.source_path).resolve() for doc in self.state.scanned_items}
         allowed_ext = {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff"}
         new_items = []
+        show_completed = self.show_completed.isChecked()
         for path in root_path.iterdir():
             if path.suffix.lower() not in allowed_ext or not path.is_file():
+                continue
+            split_completion_store.prune_if_changed(path)
+            if (not show_completed) and split_completion_store.is_split_complete(path):
                 continue
             abs_path = path.resolve()
             if abs_path in existing_paths:

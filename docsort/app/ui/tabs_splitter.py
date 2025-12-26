@@ -1,5 +1,4 @@
 import logging
-import os
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -9,9 +8,8 @@ from PySide6 import QtCore, QtWidgets
 
 from docsort.app.core.state import AppState, DocumentItem
 from docsort.app.services import pdf_split_service, split_plan_service
-from docsort.app.storage import settings_store
+from docsort.app.storage import settings_store, split_completion_store
 from docsort.app.ui.pdf_preview_widget import PdfPreviewWidget
-from docsort.app.ui.split_archive_cleanup_dialog import SplitArchiveCleanupDialog
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +29,13 @@ class SplitterTab(QtWidgets.QWidget):
         layout = QtWidgets.QHBoxLayout(self)
 
         # LEFT: list of splitter candidate PDFs
+        left_col = QtWidgets.QVBoxLayout()
+        self.show_completed = QtWidgets.QCheckBox("Show completed")
+        self.show_completed.setChecked(False)
+        left_col.addWidget(self.show_completed)
         self.list_widget = QtWidgets.QListWidget()
-        layout.addWidget(self.list_widget, 1)
+        left_col.addWidget(self.list_widget, 1)
+        layout.addLayout(left_col, 1)
 
         # MIDDLE: big preview + page list
         mid_layout = QtWidgets.QVBoxLayout()
@@ -126,15 +129,12 @@ class SplitterTab(QtWidgets.QWidget):
         self.preview_btn = QtWidgets.QPushButton("Preview Plan")
         self.cut_all_btn = QtWidgets.QPushButton("Cut All 1-page")
         self.apply_btn = QtWidgets.QPushButton("Apply Split Plan")
-        self.cleanup_btn = QtWidgets.QPushButton("Cleanup Split Archive")
-        self.cleanup_btn.setToolTip("Safely delete archived originals only after verifying all split pages are accounted for.")
         self.send_parent_done = QtWidgets.QCheckBox("Send Parent to Done")
         self.send_parent_done.setChecked(True)
 
         side.addWidget(self.preview_btn)
         side.addWidget(self.cut_all_btn)
         side.addWidget(self.apply_btn)
-        side.addWidget(self.cleanup_btn)
         side.addWidget(self.send_parent_done)
 
         side.addWidget(QtWidgets.QLabel("Plan preview"))
@@ -148,63 +148,19 @@ class SplitterTab(QtWidgets.QWidget):
         self.preview_btn.clicked.connect(self._preview_plan)
         self.apply_btn.clicked.connect(self._apply_plan)
         self.cut_all_btn.clicked.connect(self._cut_all_singletons)
-        self.cleanup_btn.clicked.connect(self._open_cleanup_dialog)
         self.list_widget.itemSelectionChanged.connect(self._update_preview)
         self.thumb_list.itemSelectionChanged.connect(self._on_page_selected)
+        self.show_completed.toggled.connect(self.refresh)
 
         self._clear_plan()
 
-    def _release_preview_handles(self) -> None:
-        try:
-            if hasattr(self, "preview") and self.preview:
-                self.preview.force_release_document()
-        except Exception:
-            pass
-        try:
-            QtWidgets.QApplication.processEvents()
-        except Exception:
-            pass
-
-    def _archive_original_pdf(self, src: Path, archive_dir: Path) -> tuple[bool, str, Path | None]:
-        archive_dir.mkdir(parents=True, exist_ok=True)
-        ts = datetime.now().strftime("%Y%m%d%H%M%S")
-        archive_name = f"{src.stem}_{ts}_{uuid.uuid4().hex[:8]}{src.suffix}"
-        archived_path = archive_dir / archive_name
-        while archived_path.exists():
-            archive_name = f"{src.stem}_{ts}_{uuid.uuid4().hex[:8]}{src.suffix}"
-            archived_path = archive_dir / archive_name
-
-        attempts = 0
-        last_err = ""
-        while attempts < 20:
-            attempts += 1
-            self._release_preview_handles()
-            try:
-                os.replace(str(src), str(archived_path))
-                if archived_path.exists() and not src.exists():
-                    try:
-                        QtWidgets.QApplication.processEvents()
-                        QtWidgets.QApplication.processEvents()
-                    except Exception:
-                        pass
-                    return True, "", archived_path
-            except Exception as exc:  # noqa: BLE001
-                last_err = str(exc)
-                if "WinError 32" in last_err or "being used by another process" in last_err:
-                    time.sleep(0.35)
-                    continue
-                break
-        # best effort cleanup of partial archive
-        try:
-            if archived_path.exists():
-                archived_path.unlink()
-        except Exception:
-            pass
-        return False, last_err or "Could not move original to archive because file is in use; close preview and retry.", None
-
     def refresh(self) -> None:
         self.list_widget.clear()
+        show_completed = self.show_completed.isChecked()
         for doc in self.state.splitter_items:
+            split_completion_store.prune_if_changed(Path(doc.source_path))
+            if not show_completed and split_completion_store.is_split_complete(Path(doc.source_path)):
+                continue
             item = QtWidgets.QListWidgetItem(f"{doc.display_name} ({doc.page_count}p)")
             item.setData(QtCore.Qt.UserRole, doc)
             self.list_widget.addItem(item)
@@ -325,8 +281,6 @@ class SplitterTab(QtWidgets.QWidget):
         except Exception as exc:  # noqa: BLE001
             QtWidgets.QMessageBox.warning(self, "Split Plan", f"Cannot access source folder: {exc}")
             return
-        archive_dir = source_root_path / "_split_archive"
-
         covered = sum((end - start + 1) for start, end in groups)
         if covered < total:
             resp = QtWidgets.QMessageBox.question(
@@ -346,8 +300,6 @@ class SplitterTab(QtWidgets.QWidget):
         if src.exists() and src.suffix.lower() == ".pdf":
             out_dir = source_root_path
             try:
-                self._release_preview_handles()
-
                 def _do_split() -> list[str]:
                     return pdf_split_service.split_pdf_to_ranges(str(src), str(out_dir), groups)
 
@@ -356,32 +308,11 @@ class SplitterTab(QtWidgets.QWidget):
                 except Exception as first_exc:  # noqa: BLE001
                     msg = str(first_exc)
                     if "WinError 32" in msg or "being used by another process" in msg:
-                        self._release_preview_handles()
                         time.sleep(0.15)
                         created_paths = _do_split()
                     else:
                         raise
                 use_pdf_split = True
-                archived = False
-                archive_msg = ""
-                archived_path: Path | None = None
-                self._release_preview_handles()
-                ok, msg, archived_path = self._archive_original_pdf(src, archive_dir)
-                archived = ok
-                archive_msg = msg
-                if archived and archived_path:
-                    doc.source_path = str(archived_path)
-                    doc.notes = f"{doc.notes} archived_to={archived_path}".strip()
-                else:
-                    warning_msg = (
-                        f"Split succeeded but failed to archive original {src} (left in source). "
-                        f"Error: {archive_msg or 'file may be in use; close preview and retry.'}"
-                    )
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        "Split PDF",
-                        warning_msg,
-                    )
                 run_ts = datetime.now().strftime("%Y%m%d%H%M%S")
                 renamed_paths: list[str] = []
                 for created in created_paths or []:
@@ -415,7 +346,6 @@ class SplitterTab(QtWidgets.QWidget):
                     if created_path.exists():
                         self.state.enqueue_scanned_path(str(created_path))
                 created_paths = renamed_paths
-                self.refresh_all()
             except Exception as exc:  # noqa: BLE001
                 QtWidgets.QMessageBox.warning(
                     self,
@@ -461,7 +391,7 @@ class SplitterTab(QtWidgets.QWidget):
                 moved.notes = f"{moved.notes} split plan applied".strip()
         else:
             doc.notes = f"{doc.notes} split plan applied".strip()
-
+        split_completion_store.mark_split_complete(src)
         self.refresh_all()
 
     # -----------------------------
@@ -503,16 +433,3 @@ class SplitterTab(QtWidgets.QWidget):
         self.cursor_page = total + 1
         self.cut_radio.setChecked(True)
         self._preview_plan()
-
-    def _open_cleanup_dialog(self) -> None:
-        source_root = settings_store.get_source_root()
-        if not source_root:
-            QtWidgets.QMessageBox.warning(self, "Cleanup Split Archive", "Set Source folder in Settings first.")
-            return
-        try:
-            source_root_path = Path(source_root).resolve()
-        except Exception as exc:  # noqa: BLE001
-            QtWidgets.QMessageBox.warning(self, "Cleanup Split Archive", f"Invalid source folder: {exc}")
-            return
-        dlg = SplitArchiveCleanupDialog(self, source_root_path)
-        dlg.exec()

@@ -6,6 +6,8 @@ from PySide6 import QtCore, QtWidgets
 from PySide6.QtPdf import QPdfDocument
 from PySide6.QtPdfWidgets import QPdfView
 
+from docsort.app.services import preview_cache
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,20 +48,30 @@ class PdfPreviewWidget(QtWidgets.QWidget):
 
     def load_pdf(self, path: str) -> bool:
         pdf_path = Path(path)
+        cached_path = preview_cache.cache_pdf_for_preview(pdf_path)
+        if not cached_path:
+            logger.warning("PDF preview load aborted: could not cache %s", pdf_path)
+            return False
         self._current_path = str(pdf_path)
         self._pending_page = 0
+        logger.info("PDF preview using cached copy: src=%s cached=%s", pdf_path, cached_path)
 
-        if not pdf_path.exists():
-            logger.warning("PDF preview load failed: missing path %s", pdf_path)
+        if not cached_path.exists():
+            logger.warning("PDF preview load failed: missing cached path %s", cached_path)
             return False
 
-        status = self.document.load(str(pdf_path))
-        logger.info("PDF preview load started path=%s status=%s", pdf_path, status)
+        status = self.document.load(str(cached_path))
+        logger.info("PDF preview load started path=%s (cached=%s) status=%s", pdf_path, cached_path, status)
         if status == QPdfDocument.Status.Error:
             logger.warning("PDF preview load immediate error for %s", pdf_path)
             return False
         if status == QPdfDocument.Status.Ready:
-            logger.info("PDF preview ready immediately path=%s pageCount=%s", pdf_path, self.document.pageCount())
+            logger.info(
+                "PDF preview ready immediately path=%s cached=%s pageCount=%s",
+                pdf_path,
+                cached_path,
+                self.document.pageCount(),
+            )
             self._apply_pending_page()
         return True
 
