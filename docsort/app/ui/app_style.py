@@ -1,192 +1,200 @@
-from PySide6 import QtGui, QtWidgets
+from __future__ import annotations
+
+from PySide6 import QtWidgets
 
 
 def apply_app_style(app: QtWidgets.QApplication) -> None:
-    """Apply global QSS theme."""
-    font = QtGui.QFont("Segoe UI", 10)
-    app.setFont(font)
-
     qss = """
-    /* Base */
+    /* Global */
     QWidget {
-        background: #f7f8fa;
+        font-family: "Segoe UI", Arial, sans-serif;
+        font-size: 12px;
         color: #1f2933;
-        font-size: 10pt;
+        background: #f7f9fc;
     }
 
     QMainWindow {
-        background: #f7f8fa;
+        background: #f7f9fc;
     }
 
     /* Tabs */
     QTabWidget::pane {
-        border: 1px solid #d4d8dd;
-        border-radius: 8px;
+        border: 1px solid #d9e2ec;
+        border-radius: 10px;
         padding: 6px;
         background: #ffffff;
     }
     QTabBar::tab {
-        background: #eef1f5;
-        border: 1px solid #d4d8dd;
+        background: #eef2f7;
+        border: 1px solid #d9e2ec;
         border-bottom: none;
-        border-radius: 8px 8px 0 0;
+        border-top-left-radius: 10px;
+        border-top-right-radius: 10px;
         padding: 8px 14px;
-        margin-right: 4px;
-        color: #1f2933;
+        margin-right: 6px;
+        color: #334e68;
     }
     QTabBar::tab:selected {
         background: #ffffff;
         border-color: #4c8bf5;
-        color: #0f172a;
+        color: #102a43;
     }
-    QTabBar::tab:hover {
-        background: #e3e7ed;
+
+    /* Group boxes */
+    QGroupBox {
+        border: 1px solid #d9e2ec;
+        border-radius: 10px;
+        margin-top: 10px;
+        padding: 10px;
+        background: #ffffff;
+    }
+    QGroupBox::title {
+        subcontrol-origin: margin;
+        left: 12px;
+        padding: 0 6px;
+        color: #334e68;
+        font-weight: 600;
+    }
+
+    /* Inputs */
+    QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QComboBox {
+        background: #ffffff;
+        border: 1px solid #cbd2d9;
+        border-radius: 8px;
+        padding: 8px;
+        selection-background-color: #4c8bf5;
+        selection-color: #ffffff;
+    }
+    QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QSpinBox:focus, QComboBox:focus {
+        border: 1px solid #4c8bf5;
+    }
+
+    /* Lists */
+    QListWidget {
+        background: #ffffff;
+        border: 1px solid #d9e2ec;
+        border-radius: 10px;
+        padding: 6px;
+    }
+    QListWidget::item {
+        padding: 10px;
+        border-radius: 8px;
+    }
+    QListWidget::item:selected {
+        background: #4c8bf5;
+        color: #ffffff;
     }
 
     /* Buttons */
     QPushButton {
-        background: #e9ecf1;
-        border: 1px solid #d4d8dd;
-        border-radius: 6px;
-        padding: 6px 14px;
-        color: #1f2933;
+        background: #e9eef6;
+        border: 1px solid #cbd2d9;
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-weight: 600;
+        color: #102a43;
     }
     QPushButton:hover {
-        background: #dfe3e9;
+        background: #dbe6ff;
+        border-color: #4c8bf5;
     }
     QPushButton:pressed {
-        background: #d1d6dd;
+        background: #c7d8ff;
     }
     QPushButton:disabled {
-        background: #f1f3f6;
-        color: #9aa5b1;
-        border-color: #e5e7eb;
+        background: #f0f4f8;
+        color: #9fb3c8;
+        border-color: #e0e7ef;
     }
 
-    /* Primary / Danger via dynamic property */
-    QPushButton[class="primary"] {
+    /* "Primary" and "Danger" via objectName (if used) */
+    QPushButton#primaryButton {
         background: #4c8bf5;
+        border-color: #4c8bf5;
         color: #ffffff;
-        border: 1px solid #3975d6;
     }
-    QPushButton[class="primary"]:hover {
-        background: #3f7be0;
+    QPushButton#primaryButton:hover {
+        background: #3a78e0;
+        border-color: #3a78e0;
     }
-    QPushButton[class="primary"]:pressed {
-        background: #356bc4;
-    }
-    QPushButton[class="danger"] {
-        background: #e35d6a;
+    QPushButton#dangerButton {
+        background: #e12d39;
+        border-color: #e12d39;
         color: #ffffff;
-        border: 1px solid #cf4d5b;
     }
-    QPushButton[class="danger"]:hover {
-        background: #d44f5c;
-    }
-    QPushButton[class="danger"]:pressed {
-        background: #c44552;
+    QPushButton#dangerButton:hover {
+        background: #cf1124;
+        border-color: #cf1124;
     }
 
-    /* Inputs */
-    QLineEdit, QTextEdit, QPlainTextEdit, QComboBox {
-        background: #ffffff;
-        border: 1px solid #d4d8dd;
+    /* Scrollbars */
+    QScrollBar:vertical {
+        background: transparent;
+        width: 12px;
+        margin: 4px;
+    }
+    QScrollBar::handle:vertical {
+        background: #cbd2d9;
         border-radius: 6px;
-        padding: 6px 8px;
-        selection-background-color: #4c8bf5;
-        selection-color: #ffffff;
+        min-height: 30px;
     }
-    QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QComboBox:focus {
-        border: 1px solid #4c8bf5;
+    QScrollBar::handle:vertical:hover {
+        background: #9fb3c8;
     }
-
-    /* Lists / Tables */
-    QListWidget, QTreeWidget, QTableWidget {
-        background: #ffffff;
-        border: 1px solid #d4d8dd;
-        border-radius: 6px;
-    }
-    QListWidget::item:selected, QTreeWidget::item:selected, QTableWidget::item:selected {
-        background: #e5f0ff;
-        color: #0f172a;
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+        height: 0px;
     }
 
-    /* GroupBox */
-    QGroupBox {
-        border: 1px solid #d4d8dd;
-        border-radius: 6px;
-        margin-top: 12px;
-        padding-top: 8px;
-        font-weight: 600;
-    }
-    QGroupBox::title {
-        subcontrol-origin: margin;
-        subcontrol-position: top left;
-        padding: 0 4px;
+    /* Radios + Checkboxes */
+    QRadioButton, QCheckBox {
+        spacing: 10px;
+        color: #1f2933;
     }
 
-    /* Radio buttons */
     QRadioButton::indicator {
-        width: 14px;
-        height: 14px;
-        border-radius: 7px;
-        border: 1px solid #7a8699;
+        width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        border: 1px solid #cbd2d9;
         background: #ffffff;
     }
     QRadioButton::indicator:checked {
         border: 1px solid #4c8bf5;
+        /* Blue ring with a clear white dot center so "selected" is never invisible */
         background: qradialgradient(
-            cx:0.5, cy:0.5, radius:0.45,
+            cx:0.5, cy:0.5, radius:0.50,
             fx:0.5, fy:0.5,
-            stop:0 #4c8bf5,
-            stop:0.55 #4c8bf5,
-            stop:0.56 #ffffff,
-            stop:1 #ffffff
+            stop:0 #ffffff,
+            stop:0.22 #ffffff,
+            stop:0.23 #4c8bf5,
+            stop:1 #4c8bf5
         );
     }
-    QRadioButton {
-        color: #1f2933;
+
+    QCheckBox::indicator {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        border: 1px solid #cbd2d9;
+        background: #ffffff;
+    }
+    QCheckBox::indicator:checked {
+        border: 1px solid #4c8bf5;
+        background: #4c8bf5;
     }
 
-    /* ScrollBars */
-    QScrollBar:vertical {
-        border: none;
-        background: #f1f3f6;
-        width: 12px;
-        margin: 2px 0 2px 0;
-        border-radius: 6px;
+    /* Labels */
+    QLabel {
+        color: #102a43;
     }
-    QScrollBar::handle:vertical {
-        background: #cfd6de;
-        min-height: 24px;
-        border-radius: 6px;
+    QLabel#mutedLabel {
+        color: #52606d;
     }
-    QScrollBar::handle:vertical:hover {
-        background: #b8c2cd;
-    }
-    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-        height: 0;
-        background: none;
-    }
-    QScrollBar:horizontal {
-        border: none;
-        background: #f1f3f6;
-        height: 12px;
-        margin: 0 2px 0 2px;
-        border-radius: 6px;
-    }
-    QScrollBar::handle:horizontal {
-        background: #cfd6de;
-        min-width: 24px;
-        border-radius: 6px;
-    }
-    QScrollBar::handle:horizontal:hover {
-        background: #b8c2cd;
-    }
-    QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
-        width: 0;
-        background: none;
+
+    /* Status / warning */
+    QLabel#warningLabel {
+        color: #cf1124;
+        font-weight: 600;
     }
     """
-
     app.setStyleSheet(qss)
