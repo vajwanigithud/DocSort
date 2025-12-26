@@ -48,16 +48,23 @@ def build_option_a(
         token = re.sub(r"_+", "_", token).strip("_")
         return token
 
-    vendor_token = _clean_token(vendor)
-    doctype_token = _clean_token(doctype)
-    number_token = _clean_token(number)
-    date_token = _clean_token(date_str)
-    basename = _clean_token(Path(source_basename).stem if source_basename else "")
+    def _is_placeholder_type(val: str) -> bool:
+        return val.lower() in {"type", "document", "unknown"}
 
-    if doctype_token.lower() == "type":
-        doctype_token = ""
-    if re.fullmatch(r"0+", number_token) or number_token == "000":
-        number_token = ""
+    def _is_placeholder_number(val: str) -> bool:
+        return val in {"0", "000"} or re.fullmatch(r"0+", val or "") is not None
+
+    def _is_placeholder_date(val: str) -> bool:
+        return val in {"", "00-00-0000", "00/00/0000", None}
+
+    vendor_token = _clean_token(vendor)
+    doctype_raw = _clean_token(doctype)
+    number_raw = _clean_token(number)
+    date_raw = _clean_token(date_str)
+    doctype_token = "" if _is_placeholder_type(doctype_raw) else doctype_raw
+    number_token = "" if _is_placeholder_number(number_raw) else number_raw
+    date_token = "" if _is_placeholder_date(date_raw) else date_raw
+    basename = _clean_token(Path(source_basename).stem if source_basename else "")
 
     def _prefix(parts):
         if vendor_token:
@@ -66,30 +73,44 @@ def build_option_a(
 
     rule = "fallback"
     tokens = []
-    if doctype_token and number_token:
-        tokens = _prefix([doctype_token, number_token])
-        if date_token:
-            tokens.append(date_token)
-        rule = "type+number+date" if date_token else "type+number"
-    elif doctype_token and date_token:
-        tokens = _prefix([doctype_token, date_token])
-        rule = "type+date"
+    if doctype_token and number_token and date_token:
+        tokens = _prefix([doctype_token, number_token, date_token])
+        rule = "type+number+date"
     elif doctype_token and number_token:
         tokens = _prefix([doctype_token, number_token])
         rule = "type+number"
+    elif doctype_token and date_token:
+        tokens = _prefix([doctype_token, date_token])
+        rule = "type+date"
     elif number_token:
-        tokens = _prefix([number_token])
-        rule = "number"
+        if date_token:
+            tokens = _prefix([number_token, date_token])
+            rule = "number+date"
+        else:
+            tokens = _prefix([number_token])
+            rule = "number"
     else:
         base = basename or vendor_token or "document"
-        if vendor_token and base != vendor_token:
-            tokens = _prefix([base])
+        if vendor_token and base.lower() == vendor_token.lower():
+            tokens = [vendor_token]
         else:
-            tokens = [base]
+            tokens = _prefix([base])
         rule = "basename"
 
     name_base = "_".join(tokens)
     name_base = re.sub(r"_+", "_", name_base).strip("_")
     filename = f"{name_base}.pdf"
-    logger.info("Naming rule=%s vendor=%s type=%s number=%s date=%s base=%s", rule, vendor_token, doctype_token, number_token, date_token, filename)
+    logger.info(
+        "Naming rule=%s raw_vendor=%s raw_type=%s raw_number=%s raw_date=%s norm_vendor=%s norm_type=%s norm_number=%s norm_date=%s filename=%s",
+        rule,
+        vendor,
+        doctype,
+        number,
+        date_str,
+        vendor_token,
+        doctype_token,
+        number_token,
+        date_token,
+        filename,
+    )
     return filename

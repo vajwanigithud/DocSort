@@ -33,7 +33,21 @@ class RenameMoveTab(QtWidgets.QWidget):
         self._active_worker: Optional[MoveWorker] = None
         self._active_thread: Optional[QtCore.QThread] = None
         self._suggest_cache: Dict[str, str] = {}
+        self._programmatic_update: bool = False
+        self._active_doc_key: Optional[str] = None
         self._build_ui()
+
+    def _set_final_text_programmatically(self, text: str) -> None:
+        self._programmatic_update = True
+        with QtCore.QSignalBlocker(self.final_field):
+            self.final_field.setText(text)
+        self._programmatic_update = False
+
+    def _set_manual_text_programmatically(self, text: str) -> None:
+        self._programmatic_update = True
+        with QtCore.QSignalBlocker(self.manual_edit):
+            self.manual_edit.setText(text)
+        self._programmatic_update = False
 
     def _build_ui(self) -> None:
         layout = QtWidgets.QHBoxLayout(self)
@@ -102,7 +116,7 @@ class RenameMoveTab(QtWidgets.QWidget):
         for rb in [self.option_a, self.option_b, self.option_c, self.option_d]:
             rb.toggled.connect(self._update_preview)
         self.option_c.toggled.connect(self._on_option_c_selected)
-        self.manual_edit.textChanged.connect(self._update_preview)
+        self.manual_edit.textEdited.connect(self._on_manual_edited)
         self.final_field.textEdited.connect(self._on_final_edited)
         self.create_folder_btn.clicked.connect(self._create_folder)
         self.confirm_btn.clicked.connect(self._confirm_current)
@@ -116,6 +130,44 @@ class RenameMoveTab(QtWidgets.QWidget):
             return None
         return item.data(QtCore.Qt.UserRole)
 
+    def _doc_key(self, doc_or_path) -> str:
+        if isinstance(doc_or_path, DocumentItem):
+            path = doc_or_path.source_path
+        else:
+            path = str(doc_or_path)
+        try:
+            return str(Path(path).resolve())
+        except Exception:
+            return os.path.abspath(path)
+
+    def _is_placeholder_filename(self, name: str) -> bool:
+        cleaned = (name or "").strip().lower()
+        if not cleaned:
+            return True
+        if "00-00-0000" in cleaned or "00/00/0000" in cleaned:
+            return True
+        if cleaned.startswith("type_0"):
+            return True
+        if re.match(r"type_0+\.pdf$", cleaned):
+            return True
+        return False
+
+    def _on_manual_edited(self, text: str) -> None:
+        # user typing in manual_edit should reflect in preview, but not save overrides
+        doc = self._selected_item()
+        if not doc:
+            return
+        self._update_preview()
+
+    def _cleanup_invalid_overrides(self) -> None:
+        remove_keys = []
+        for key, val in self._manual_overrides.items():
+            if not Path(key).exists() or self._is_placeholder_filename(val):
+                remove_keys.append(key)
+        for key in remove_keys:
+            self._manual_overrides.pop(key, None)
+            logger.info("Removed invalid override key=%s", key)
+
     def _all_items(self) -> List[QtWidgets.QListWidgetItem]:
         return [self.list_widget.item(i) for i in range(self.list_widget.count())]
 
@@ -123,24 +175,62 @@ class RenameMoveTab(QtWidgets.QWidget):
         return naming_service.build_option_a(doc.vendor, doc.doctype, doc.number, doc.date_str, Path(doc.source_path).stem)
 
     def _final_filename_for_doc(self, doc: DocumentItem) -> str:
-        name = self._manual_overrides.get(doc.id) or self._get_option_a_name(doc)
+        key = self._doc_key(doc)
+        name = self._manual_overrides.get(key)
+        if not name:
+            if doc.doctype == "Type" and doc.number == "000":
+                # Avoid placeholder in UI; prefer empty to indicate detecting
+                logger.info("Using empty/detecting placeholder to avoid Type_000 key=%s", key)
+                name = ""
+            else:
+                name = self._get_option_a_name(doc)
         name = naming_service.enforce_no_spaces(name)
-        if not name.lower().endswith(".pdf"):
+        if name and not name.lower().endswith(".pdf"):
             name = f"{name}.pdf"
         return name
+
+    def _recompute_suggestion(self, doc: DocumentItem, reason: str = "") -> str:
+        key = self._doc_key(doc)
+        filename = self._get_option_a_name(doc)
+        current_final = self.final_field.text().strip()
+        logger.info(
+            "Recompute suggestion reason=%s key=%s type=%s number=%s date=%s -> %s",
+            reason,
+            key,
+            doc.doctype,
+            doc.number,
+            doc.date_str,
+            filename,
+        )
+        if self._is_placeholder_filename(current_final):
+            logger.info("Placeholder detected in final field, replacing with suggestion key=%s", key)
+        self._set_final_text_programmatically(filename)
+        # Keep manual field aligned with suggestion for option A/C when no override
+        if not self._manual_overrides.get(key):
+            self._set_manual_text_programmatically(filename)
+        self.preview_field.setText(filename)
+        return filename
 
     def _on_final_edited(self, text: str) -> None:
         doc = self._selected_item()
         if not doc:
             return
         sanitized = naming_service.enforce_no_spaces(text)
-        self._manual_overrides[doc.id] = sanitized
+        key = self._doc_key(doc)
+        if self._programmatic_update:
+            logger.debug("Programmatic final edit ignored key=%s text=%s", key, sanitized)
+            return
+        if self._is_placeholder_filename(sanitized):
+            if key in self._manual_overrides:
+                self._manual_overrides.pop(key, None)
+                logger.info("Placeholder override removed key=%s filename=%s", key, sanitized)
+            return
+        self._manual_overrides[key] = sanitized
+        logger.info("Manual override set key=%s filename=%s", key, sanitized)
         if not sanitized.lower().endswith(".pdf"):
             sanitized = f"{sanitized}.pdf"
         # Avoid recursive textEdited; set using block signals.
-        self.final_field.blockSignals(True)
-        self.final_field.setText(sanitized)
-        self.final_field.blockSignals(False)
+        self._set_final_text_programmatically(sanitized)
 
     def _sanitize_filename(self, text: str) -> str:
         cleaned = re.sub(r'[<>:"/\\\\|?*]', "", text)
@@ -183,9 +273,7 @@ class RenameMoveTab(QtWidgets.QWidget):
         if not doc:
             return
         suggested = self._get_suggested_name(doc)
-        with QtCore.QSignalBlocker(self.manual_edit):
-            self.manual_edit.setText(suggested)
-        self._manual_overrides[doc.id] = suggested
+        self._set_manual_text_programmatically(suggested)
         self._update_preview()
 
     def _get_suggested_name(self, doc: DocumentItem) -> str:
@@ -195,7 +283,9 @@ class RenameMoveTab(QtWidgets.QWidget):
         if key in self._suggest_cache:
             return self._suggest_cache[key]
         fallback_stem = self._build_fallback_stem(doc, folder_name)
-        if doc.doctype and doc.number:
+        missing_type = not doc.doctype or doc.doctype.lower() in {"type", "document", "unknown"}
+        missing_number = not doc.number or re.fullmatch(r"0+", doc.number or "") is not None
+        if not missing_type and not missing_number:
             suggested = f"{doc.doctype.title()}_{doc.number}"
             if not suggested.lower().endswith(".pdf"):
                 suggested = f"{suggested}.pdf"
@@ -211,33 +301,38 @@ class RenameMoveTab(QtWidgets.QWidget):
             self.preview.clear()
             self.preview_label.setText("Preview")
             return
+        key = self._doc_key(doc)
+        existing = self._manual_overrides.get(key)
+        if existing and self._is_placeholder_filename(existing):
+            self._manual_overrides.pop(key, None)
+            logger.info("Removed placeholder override for key=%s existing=%s", key, existing)
         manual_text = self.manual_edit.text().strip()
         if self.option_c.isChecked():
             if not manual_text:
                 manual_text = self._get_suggested_name(doc)
-                with QtCore.QSignalBlocker(self.manual_edit):
-                    self.manual_edit.setText(manual_text)
+                self._set_manual_text_programmatically(manual_text)
             manual_name = self._sanitize_filename(manual_text)
             if not manual_name.lower().endswith(".pdf"):
                 manual_name = f"{manual_name}.pdf"
             self.preview_field.setText(manual_name)
-            self._manual_overrides[doc.id] = manual_name
-            blocker = QtCore.QSignalBlocker(self.final_field)
-            self.final_field.setText(manual_name)
+            if not self._programmatic_update and not self._is_placeholder_filename(manual_name):
+                self._manual_overrides[key] = manual_name
+                logger.info("Preview override set key=%s filename=%s", key, manual_name)
+            self._set_final_text_programmatically(manual_name)
         elif manual_text:
             manual_name = naming_service.enforce_no_spaces(manual_text)
             if not manual_name.lower().endswith(".pdf"):
                 manual_name = f"{manual_name}.pdf"
             self.preview_field.setText(manual_name)
-            self._manual_overrides[doc.id] = manual_name
-            blocker = QtCore.QSignalBlocker(self.final_field)
-            self.final_field.setText(manual_name)
+            if not self._programmatic_update and not self._is_placeholder_filename(manual_name):
+                self._manual_overrides[key] = manual_name
+                logger.info("Preview manual override set key=%s filename=%s", key, manual_name)
+            self._set_final_text_programmatically(manual_name)
         else:
             option_a = self._get_option_a_name(doc)
             self.preview_field.setText(option_a)
-            if doc.id not in self._manual_overrides:
-                blocker = QtCore.QSignalBlocker(self.final_field)
-                self.final_field.setText(option_a)
+            if key not in self._manual_overrides:
+                self._set_final_text_programmatically(option_a)
         self._update_pdf_preview(doc)
 
     def _update_pdf_preview(self, doc: DocumentItem) -> None:
@@ -261,6 +356,7 @@ class RenameMoveTab(QtWidgets.QWidget):
                 self.preview.set_page(0)
                 self.preview_label.setText(f"Preview - {doc.display_name}")
                 logger.info("Rename preview loaded: %s", path)
+                detect_key = self._doc_key(doc)
                 doctype, number, detected_date, err = detect_doc_fields_from_pdf(str(path))
                 changed = False
                 if doctype:
@@ -269,12 +365,18 @@ class RenameMoveTab(QtWidgets.QWidget):
                 if number:
                     changed = changed or (doc.number != number)
                     doc.number = number
-                if doctype or number:
-                    logger.info("Auto-detected fields: doctype=%s number=%s date=%s path=%s", doctype, number, detected_date, path)
+                if detected_date:
+                    changed = changed or (doc.date_str != detected_date)
+                    doc.date_str = detected_date
+                if doctype or number or detected_date:
+                    logger.info("Auto-detected fields applied key=%s doctype=%s number=%s date=%s path=%s", detect_key, doc.doctype, doc.number, doc.date_str, path)
                 if err:
                     logger.debug("Auto-detect text error for %s: %s", path, err)
                 if changed:
-                    QtCore.QTimer.singleShot(0, self._update_preview)
+                    if detect_key == self._active_doc_key:
+                        self._recompute_suggestion(doc, reason="autodetect")
+                    else:
+                        logger.info("Detect result stored for inactive doc key=%s active=%s", detect_key, self._active_doc_key)
             else:
                 self.preview.clear()
                 self.preview_label.setText("Preview unavailable")
@@ -290,10 +392,10 @@ class RenameMoveTab(QtWidgets.QWidget):
             self.preview.clear()
             self.preview_label.setText("Preview")
             return
+        self._active_doc_key = self._doc_key(doc)
         self.manual_edit.clear()
         final_name = self._final_filename_for_doc(doc)
-        blocker = QtCore.QSignalBlocker(self.final_field)
-        self.final_field.setText(final_name)
+        self._set_final_text_programmatically(final_name)
         self._update_preview()
 
     def _create_folder(self) -> None:
@@ -363,7 +465,8 @@ class RenameMoveTab(QtWidgets.QWidget):
         self.folder_dropdown.addItems(folders)
         doc = self._selected_item()
         if doc:
-            self.preview_label.setText(f"Preview — {doc.display_name}")
+            self._active_doc_key = self._doc_key(doc)
+            self.preview_label.setText(f"Preview - {doc.display_name}")
         else:
             self.preview_label.setText("Preview")
             self.preview.clear()
@@ -393,7 +496,8 @@ class RenameMoveTab(QtWidgets.QWidget):
 
         for doc in list(docs):
             final_name = self._final_filename_for_doc(doc)
-            chosen_option = "MANUAL" if doc.id in self._manual_overrides else "A"
+            key = self._doc_key(doc)
+            chosen_option = "MANUAL" if key in self._manual_overrides else "A"
             dest_path = dest_folder_path / final_name
             training_store.append_event(
                 {
@@ -410,7 +514,7 @@ class RenameMoveTab(QtWidgets.QWidget):
                 note_prefix = f"{doc.notes} ".strip()
                 doc.notes = f"{note_prefix}mock_move dest={dest_path}"
                 self.state.move_between_named_lists("rename_items", "done_items", doc.id)
-                self._manual_overrides.pop(doc.id, None)
+                self._manual_overrides.pop(key, None)
                 continue
 
             logger.info("Confirm Move paths: src=%s dst=%s", doc.source_path, dest_path)
@@ -514,7 +618,7 @@ class RenameMoveTab(QtWidgets.QWidget):
                         self.state.done_items.append(doc)
                     except Exception:
                         logger.warning("State adjustment failed for %s", doc.id)
-                self._manual_overrides.pop(doc.id, None)
+                self._manual_overrides.pop(self._doc_key(doc), None)
             with QtCore.QSignalBlocker(self.list_widget):
                 for i in range(self.list_widget.count()):
                     item = self.list_widget.item(i)

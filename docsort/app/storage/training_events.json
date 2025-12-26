@@ -286,5 +286,167 @@
     "final_folder": "Invoice",
     "destination_root": "C:/Users/User/Desktop/Sorting",
     "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-26T04:25:43",
+    "item_id": "scan-680938ac",
+    "chosen_option": "MANUAL",
+    "final_filename": "Estimate_1016.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-26T04:34:49",
+    "item_id": "scan-bf27fae0",
+    "chosen_option": "A",
+    "final_filename": "Estimate_1016.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-26T05:47:59",
+    "item_id": "scan-b0e7ca98",
+    "chosen_option": "A",
+    "final_filename": "Estimate_1016.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-26T05:48:08",
+    "item_id": "scan-d72c7f08",
+    "chosen_option": "A",
+    "final_filename": "Vendor_Invoice_5329.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-26T05:54:31",
+    "item_id": "5f900846-6b90-4dcf-9f34-3a5721004f7e",
+    "chosen_option": "A",
+    "final_filename": "Invoice_5329.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": ""
+  },
+  {
+    "timestamp": "2025-12-26T05:54:39",
+    "item_id": "393b950b-f787-4dfa-9655-66532951e2fd",
+    "chosen_option": "A",
+    "final_filename": "Vendor_123124123123.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": ""
+  },
+  {
+    "timestamp": "2025-12-26T05:57:54",
+    "item_id": "888ed816-2aba-494e-baca-a7b703bc3abd",
+    "chosen_option": "A",
+    "final_filename": "Invoice_5329.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": ""
+  },
+  {
+    "timestamp": "2025-12-26T05:58:09",
+    "item_id": "cb92c8fd-97d6-400a-a0b3-3b8ba844c22a",
+    "chosen_option": "A",
+    "final_filename": "Vendor_Estimate_1016.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": ""
+  },
+  {
+    "timestamp": "2025-12-26T06:02:06",
+    "item_id": "scan-c7b19ccb",
+    "chosen_option": "MANUAL",
+    "final_filename": "Vendor_Invoice_5329_2025-10-22.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-26T06:02:25",
+    "item_id": "scan-8cb533a4",
+    "chosen_option": "MANUAL",
+    "final_filename": "Vendor_Estimate_1016.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-26T06:09:06",
+    "item_id": "1233dfa2-f31c-4f23-b486-7d7727178c5b",
+    "chosen_option": "MANUAL",
+    "final_filename": "Invoice_5329.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": ""
+  },
+  {
+    "timestamp": "2025-12-26T06:09:15",
+    "item_id": "scan-c0745d1e",
+    "chosen_option": "MANUAL",
+    "final_filename": "Vendor_Estimate_1016.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-26T06:22:38",
+    "item_id": "scan-3538531b",
+    "chosen_option": "MANUAL",
+    "final_filename": "Invoice_5329.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-26T06:22:50",
+    "item_id": "scan-6e75f845",
+    "chosen_option": "MANUAL",
+    "final_filename": "Vendor_Estimate_1016.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": "watcher"
+  },
+  {
+    "timestamp": "2025-12-26T06:28:39",
+    "item_id": "dd1281c4-8b6d-4441-9709-27977d4707c1",
+    "chosen_option": "MANUAL",
+    "final_filename": "Invoice_5329.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": ""
+  },
+  {
+    "timestamp": "2025-12-26T06:28:53",
+    "item_id": "2ec9ac69-00e3-484c-bbab-e812620a4742",
+    "chosen_option": "MANUAL",
+    "final_filename": "Vendor_Estimate_1016.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": ""
+  },
+  {
+    "timestamp": "2025-12-26T06:36:06",
+    "item_id": "be2c91a0-b3ff-40cb-bce9-cfdfd8e6d8e8",
+    "chosen_option": "MANUAL",
+    "final_filename": "Invoice_5329.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": ""
+  },
+  {
+    "timestamp": "2025-12-26T06:36:17",
+    "item_id": "d2e89100-128d-48f0-8b9d-57e5371f6d7a",
+    "chosen_option": "MANUAL",
+    "final_filename": "Estimate_1016.pdf",
+    "final_folder": "Invoice",
+    "destination_root": "C:/Users/User/Desktop/Sorting",
+    "notes": ""
   }
 ]
