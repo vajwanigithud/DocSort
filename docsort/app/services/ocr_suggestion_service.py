@@ -1,25 +1,27 @@
 import hashlib
 import logging
+import os
 import re
+import shutil
 import time
+from collections import OrderedDict
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, List, Tuple
 
-from docsort.app.services import pdf_utils, naming_service
+from docsort.app.services import naming_service, pdf_utils
 
 try:
-    import PIL  # type: ignore
-    from PIL import Image, ImageFilter, ImageOps, ImageStat  # type: ignore
+    from PIL import Image, ImageFilter, ImageOps, ImageStat
 except Exception:  # pragma: no cover - optional dependency guard
-    PIL = None  # type: ignore
-    Image = None  # type: ignore
-    ImageFilter = None  # type: ignore
-    ImageOps = None  # type: ignore
-    ImageStat = None  # type: ignore
+    Image = None  # type: ignore[assignment]
+    ImageFilter = None  # type: ignore[assignment]
+    ImageOps = None  # type: ignore[assignment]
+    ImageStat = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
-_text_cache: Dict[str, str] = {}
+_TEXT_CACHE_MAX_ENTRIES = 128
+_text_cache: OrderedDict[str, str] = OrderedDict()
 _logged_ocr_unavailable = False
 OCR_MAX_PAGES = 2
 _WEAK_TEXT_CHARS = 120
@@ -53,10 +55,12 @@ def _deskew_binary(image_gray, cv2, np):
     return cv2.warpAffine(image_gray, m, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
 
 
-def _preprocess_with_cv2(pil_image: "Image") -> "Image":
+def _preprocess_with_cv2(pil_image: Any) -> Any:
     cv2, np = _try_import_cv2()
     if not cv2 or not np:
         raise RuntimeError("cv2 not available")
+    if not Image:
+        raise RuntimeError("PIL not available")
     np_img = np.array(pil_image)
     if np_img.ndim == 3 and np_img.shape[2] >= 3:
         gray = cv2.cvtColor(np_img, cv2.COLOR_RGB2GRAY)
@@ -91,7 +95,7 @@ def _preprocess_with_cv2(pil_image: "Image") -> "Image":
     return Image.fromarray(cleaned)
 
 
-def _preprocess_with_pil_only(pil_image: "Image") -> "Image":
+def _preprocess_with_pil_only(pil_image: Any) -> Any:
     if not Image:
         return pil_image
     gray = pil_image.convert("L")
@@ -108,7 +112,7 @@ def _preprocess_with_pil_only(pil_image: "Image") -> "Image":
     return binarized
 
 
-def preprocess_for_ocr(pil_image: "Image") -> "Image":
+def preprocess_for_ocr(pil_image: Any) -> Any:
     try:
         return _preprocess_with_cv2(pil_image)
     except Exception:
@@ -140,6 +144,24 @@ def _cache_key(path: Path, max_pages: int) -> str:
     return f"{str(path.resolve())}::{mtime}::{max_pages}"
 
 
+def _configure_tesseract_command(pytesseract) -> None:
+    try:
+        candidate_paths: List[Path] = []
+        env_cmd = os.environ.get("TESSERACT_CMD")
+        if env_cmd:
+            candidate_paths.append(Path(env_cmd))
+        which_cmd = shutil.which("tesseract")
+        if which_cmd:
+            candidate_paths.append(Path(which_cmd))
+        candidate_paths.append(Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe"))
+        for candidate in candidate_paths:
+            if candidate and candidate.exists():
+                pytesseract.pytesseract.tesseract_cmd = str(candidate)
+                return
+    except Exception:
+        return
+
+
 def _try_pypdf_text(path: Path, max_pages: int) -> str:
     try:
         text, err = pdf_utils.extract_pdf_text(str(path), max_pages=max_pages)
@@ -154,6 +176,11 @@ def _try_pypdf_text(path: Path, max_pages: int) -> str:
 def _try_ocr(path: Path, max_pages: int) -> str:
     global _logged_ocr_unavailable
     start = time.time()
+    if not Image:
+        if not _logged_ocr_unavailable:
+            logger.info("OCR unavailable: PIL not installed")
+            _logged_ocr_unavailable = True
+        return ""
     try:
         import fitz  # PyMuPDF
     except Exception:
@@ -168,14 +195,7 @@ def _try_ocr(path: Path, max_pages: int) -> str:
             logger.info("OCR unavailable: pytesseract not installed")
             _logged_ocr_unavailable = True
         return ""
-    try:
-        candidate_cmd = Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe")
-        current_cmd = getattr(getattr(pytesseract, "pytesseract", pytesseract), "tesseract_cmd", None)
-        if candidate_cmd.exists():
-            if not current_cmd or not Path(str(current_cmd)).exists():
-                pytesseract.pytesseract.tesseract_cmd = str(candidate_cmd)
-    except Exception:
-        pass
+    _configure_tesseract_command(pytesseract)
 
     def _ocr_page(doc_obj, page_idx: int, scale: float, psm: int) -> Tuple[str, str]:
         try:
@@ -283,7 +303,9 @@ def get_text_for_pdf(path: str, max_pages: int = 1) -> str:
     effective_max_pages = max_pages
     key = _cache_key(pdf_path, effective_max_pages)
     if key in _text_cache:
-        return _text_cache[key]
+        cached_val = _text_cache[key]
+        _text_cache.move_to_end(key)
+        return cached_val
     logger.info("OCR text request start path=%s max_pages=%s", pdf_path, max_pages)
     text = _try_pypdf_text(pdf_path, max_pages=effective_max_pages)
     if len(text) < 200 or len(text.split()) < 15:
@@ -291,6 +313,9 @@ def get_text_for_pdf(path: str, max_pages: int = 1) -> str:
         if ocr_text:
             text = ocr_text
     _text_cache[key] = text or ""
+    _text_cache.move_to_end(key)
+    if len(_text_cache) > _TEXT_CACHE_MAX_ENTRIES:
+        _text_cache.popitem(last=False)
     logger.info("OCR text request finished path=%s chars=%s", pdf_path, len(text or ""))
     return text or ""
 
