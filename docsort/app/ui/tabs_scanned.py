@@ -9,10 +9,12 @@ from docsort.app.storage import settings_store
 
 
 class ScannedTab(QtWidgets.QWidget):
-    def __init__(self, state: AppState, refresh_all) -> None:
+    def __init__(self, state: AppState, refresh_all, start_monitor, stop_monitor) -> None:
         super().__init__()
         self.state = state
         self.refresh_all = refresh_all
+        self.start_monitor_cb = start_monitor
+        self.stop_monitor_cb = stop_monitor
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -25,7 +27,11 @@ class ScannedTab(QtWidgets.QWidget):
         self.refresh_btn = QtWidgets.QPushButton("Refresh from Source")
         self.warning_label = QtWidgets.QLabel("Set Source Folder in Settings")
         self.warning_label.setStyleSheet("color: #b33;")
+        self.start_monitor_btn = QtWidgets.QPushButton("Start Monitoring")
+        self.stop_monitor_btn = QtWidgets.QPushButton("Stop Monitoring")
         header.addWidget(self.refresh_btn)
+        header.addWidget(self.start_monitor_btn)
+        header.addWidget(self.stop_monitor_btn)
         header.addWidget(self.warning_label)
         main_layout.addLayout(header)
 
@@ -71,6 +77,8 @@ class ScannedTab(QtWidgets.QWidget):
         self.route_now_btn.clicked.connect(self._route_selected)
         self.auto_route_all_btn.clicked.connect(self._auto_route_all)
         self.refresh_btn.clicked.connect(self._refresh_from_source)
+        self.start_monitor_btn.clicked.connect(self.start_monitor_cb)
+        self.stop_monitor_btn.clicked.connect(self.stop_monitor_cb)
         main_layout.addLayout(layout)
 
     def _selected_item(self) -> DocumentItem | None:

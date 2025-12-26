@@ -33,7 +33,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.source_root = settings_store.get_source_root()
 
         self.tabs = QtWidgets.QTabWidget()
-        self.scanned_tab = ScannedTab(self.state, self.refresh_all)
+        self.scanned_tab = ScannedTab(self.state, self.refresh_all, self.start_poller, self.stop_poller)
         self.splitter_tab = SplitterTab(self.state, self.refresh_all)
         self.rename_tab = RenameMoveTab(self.state, self.folder_service, self.refresh_all)
         self.attention_tab = NeedsAttentionTab(self.state, self.refresh_all)

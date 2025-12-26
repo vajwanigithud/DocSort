@@ -43,13 +43,6 @@ class SettingsTab(QtWidgets.QWidget):
         root_row.addWidget(self.change_root_btn)
         layout.addLayout(root_row)
 
-        buttons_row = QtWidgets.QHBoxLayout()
-        self.start_watcher_btn = QtWidgets.QPushButton("Start Monitoring")
-        self.stop_watcher_btn = QtWidgets.QPushButton("Stop Monitoring")
-        buttons_row.addWidget(self.start_watcher_btn)
-        buttons_row.addWidget(self.stop_watcher_btn)
-        layout.addLayout(buttons_row)
-
         self.note_label = QtWidgets.QLabel("Monitoring uses safe polling (1s interval) for stability on Windows.")
         self.note_label.setStyleSheet("color: #555;")
         layout.addWidget(self.note_label)
@@ -71,8 +64,6 @@ class SettingsTab(QtWidgets.QWidget):
         self.change_source_btn.clicked.connect(self._change_source)
         self.change_root_btn.clicked.connect(self._change_root)
         self.create_folder_btn.clicked.connect(self._create_folder)
-        self.start_watcher_btn.clicked.connect(self.start_watcher_cb)
-        self.stop_watcher_btn.clicked.connect(self.stop_watcher_cb)
         self.open_logs_btn.clicked.connect(self._open_logs)
 
     def _change_source(self) -> None:
