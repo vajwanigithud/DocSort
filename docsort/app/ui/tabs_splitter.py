@@ -1,6 +1,9 @@
 import logging
+import os
 import uuid
+from datetime import datetime
 from pathlib import Path
+import time
 
 from PySide6 import QtCore, QtWidgets
 
@@ -146,6 +149,54 @@ class SplitterTab(QtWidgets.QWidget):
 
         self._clear_plan()
 
+    def _release_preview_handles(self) -> None:
+        try:
+            if hasattr(self, "preview") and self.preview:
+                self.preview.force_release_document()
+        except Exception:
+            pass
+        try:
+            QtWidgets.QApplication.processEvents()
+        except Exception:
+            pass
+
+    def _archive_original_pdf(self, src: Path, archive_dir: Path) -> tuple[bool, str, Path | None]:
+        archive_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d%H%M%S")
+        archive_name = f"{src.stem}_{ts}_{uuid.uuid4().hex[:8]}{src.suffix}"
+        archived_path = archive_dir / archive_name
+        while archived_path.exists():
+            archive_name = f"{src.stem}_{ts}_{uuid.uuid4().hex[:8]}{src.suffix}"
+            archived_path = archive_dir / archive_name
+
+        attempts = 0
+        last_err = ""
+        while attempts < 20:
+            attempts += 1
+            self._release_preview_handles()
+            try:
+                os.replace(str(src), str(archived_path))
+                if archived_path.exists() and not src.exists():
+                    try:
+                        QtWidgets.QApplication.processEvents()
+                        QtWidgets.QApplication.processEvents()
+                    except Exception:
+                        pass
+                    return True, "", archived_path
+            except Exception as exc:  # noqa: BLE001
+                last_err = str(exc)
+                if "WinError 32" in last_err or "being used by another process" in last_err:
+                    time.sleep(0.35)
+                    continue
+                break
+        # best effort cleanup of partial archive
+        try:
+            if archived_path.exists():
+                archived_path.unlink()
+        except Exception:
+            pass
+        return False, last_err or "Could not move original to archive because file is in use; close preview and retry.", None
+
     def refresh(self) -> None:
         self.list_widget.clear()
         for doc in self.state.splitter_items:
@@ -259,6 +310,18 @@ class SplitterTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "Split Plan", error)
             return
 
+        source_root = settings_store.get_source_root()
+        if not source_root:
+            QtWidgets.QMessageBox.warning(self, "Split Plan", "Set Source folder in Settings first.")
+            return
+        source_root_path = Path(source_root)
+        try:
+            source_root_path.mkdir(parents=True, exist_ok=True)
+        except Exception as exc:  # noqa: BLE001
+            QtWidgets.QMessageBox.warning(self, "Split Plan", f"Cannot access source folder: {exc}")
+            return
+        archive_dir = source_root_path / "_split_archive"
+
         covered = sum((end - start + 1) for start, end in groups)
         if covered < total:
             resp = QtWidgets.QMessageBox.question(
@@ -276,12 +339,78 @@ class SplitterTab(QtWidgets.QWidget):
 
         src = Path(doc.source_path)
         if src.exists() and src.suffix.lower() == ".pdf":
-            dest_root = settings_store.get_destination_root()
-            out_dir = Path(dest_root) / "_split_output" if dest_root else (Path(__file__).resolve().parents[3] / "_split_output")
+            out_dir = source_root_path
             try:
-                created_paths = pdf_split_service.split_pdf_to_ranges(str(src), str(out_dir), groups)
+                self._release_preview_handles()
+
+                def _do_split() -> list[str]:
+                    return pdf_split_service.split_pdf_to_ranges(str(src), str(out_dir), groups)
+
+                try:
+                    created_paths = _do_split()
+                except Exception as first_exc:  # noqa: BLE001
+                    msg = str(first_exc)
+                    if "WinError 32" in msg or "being used by another process" in msg:
+                        self._release_preview_handles()
+                        time.sleep(0.15)
+                        created_paths = _do_split()
+                    else:
+                        raise
                 use_pdf_split = True
-                doc.notes = f"{doc.notes} split_output_dir={out_dir}".strip()
+                archived = False
+                archive_msg = ""
+                archived_path: Path | None = None
+                self._release_preview_handles()
+                ok, msg, archived_path = self._archive_original_pdf(src, archive_dir)
+                archived = ok
+                archive_msg = msg
+                if archived and archived_path:
+                    doc.source_path = str(archived_path)
+                    doc.notes = f"{doc.notes} archived_to={archived_path}".strip()
+                else:
+                    warning_msg = (
+                        f"Split succeeded but failed to archive original {src} (left in source). "
+                        f"Error: {archive_msg or 'file may be in use; close preview and retry.'}"
+                    )
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        "Split PDF",
+                        warning_msg,
+                    )
+                run_ts = datetime.now().strftime("%Y%m%d%H%M%S")
+                renamed_paths: list[str] = []
+                for created in created_paths or []:
+                    created_path = Path(created)
+                    if not created_path.exists():
+                        renamed_paths.append(str(created_path))
+                        continue
+                    if created_path.suffix.lower() != ".pdf":
+                        renamed_paths.append(str(created_path))
+                        continue
+                    base_stem = created_path.stem
+                    idx = base_stem.find("_p")
+                    stem_prefix = base_stem if idx == -1 else base_stem[:idx]
+                    stem_suffix = "" if idx == -1 else base_stem[idx:]
+                    run_id = f"{run_ts}_{uuid.uuid4().hex[:8]}"
+                    rename_attempts = 0
+                    while rename_attempts < 3:
+                        rename_attempts += 1
+                        new_name = f"{stem_prefix}_{run_id}{stem_suffix}{created_path.suffix}"
+                        candidate = created_path.with_name(new_name)
+                        if candidate.exists():
+                            run_id = f"{run_ts}_{uuid.uuid4().hex[:8]}"
+                            continue
+                        try:
+                            created_path = created_path.rename(candidate)
+                            break
+                        except Exception as exc:  # noqa: BLE001
+                            logger.warning("Failed to rename split output to %s: %s", candidate, exc)
+                            run_id = f"{run_ts}_{uuid.uuid4().hex[:8]}"
+                    renamed_paths.append(str(created_path))
+                    if created_path.exists():
+                        self.state.enqueue_scanned_path(str(created_path))
+                created_paths = renamed_paths
+                self.refresh_all()
             except Exception as exc:  # noqa: BLE001
                 QtWidgets.QMessageBox.warning(
                     self,

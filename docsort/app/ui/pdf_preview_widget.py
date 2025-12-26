@@ -98,22 +98,46 @@ class PdfPreviewWidget(QtWidgets.QWidget):
         if old_doc is self._empty_doc:
             old_doc = None
         try:
-            self.document.statusChanged.disconnect(self._on_status_changed)  # type: ignore[attr-defined]
+            if old_doc:
+                old_doc.statusChanged.disconnect(self._on_status_changed)  # type: ignore[attr-defined]
         except Exception:
             pass
-        # Swap to the persistent empty doc to drop handles without null docs
-        self.view.setDocument(self._empty_doc)
-        logger.debug("PDF preview swapped to empty document")
-        QtWidgets.QApplication.processEvents()
-
+        try:
+            self.view.setDocument(None)
+            logger.debug("PDF preview detached document (None)")
+        except Exception:
+            pass
+        try:
+            self.view.setDocument(self._empty_doc)
+            logger.debug("PDF preview swapped to empty document")
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("PDF preview swap to empty failed: %s", exc)
+        try:
+            QtWidgets.QApplication.processEvents()
+            QtWidgets.QApplication.processEvents()
+        except Exception:
+            pass
+        if old_doc:
+            try:
+                old_doc.close()
+                logger.debug("PDF preview old document closed")
+            except Exception:
+                pass
+            try:
+                old_doc.deleteLater()
+            except Exception:
+                pass
         new_doc = QPdfDocument(self)
         try:
             new_doc.statusChanged.connect(self._on_status_changed)  # type: ignore[attr-defined]
         except Exception as exc:  # noqa: BLE001
             logger.warning("PDF preview: statusChanged connect failed after force release: %s", exc)
         self.document = new_doc
-        self.view.setDocument(self.document)
-        self.view.setPageMode(QPdfView.PageMode.SinglePage)
+        try:
+            self.view.setDocument(self.document)
+            self.view.setPageMode(QPdfView.PageMode.SinglePage)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("PDF preview setDocument failed after release: %s", exc)
         self._pending_page = None
         self._current_path = None
         try:
@@ -121,11 +145,6 @@ class PdfPreviewWidget(QtWidgets.QWidget):
             logger.debug("PDF preview navigator rebound")
         except Exception:
             self._page_navigator = None
-        if old_doc:
-            try:
-                old_doc.deleteLater()
-            except Exception:
-                pass
         logger.info("PDF preview document swap complete")
         self._is_swapping = False
 
