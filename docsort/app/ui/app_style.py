@@ -135,7 +135,14 @@ def apply_app_style(app: QtWidgets.QApplication) -> None:
     }
     QRadioButton::indicator:checked {
         border: 1px solid #4c8bf5;
-        background: qradialgradient(cx:0.5, cy:0.5, radius:0.6, fx:0.5, fy:0.5, stop:0 #4c8bf5, stop:1 #ffffff);
+        background: qradialgradient(
+            cx:0.5, cy:0.5, radius:0.45,
+            fx:0.5, fy:0.5,
+            stop:0 #4c8bf5,
+            stop:0.55 #4c8bf5,
+            stop:0.56 #ffffff,
+            stop:1 #ffffff
+        );
     }
     QRadioButton {
         color: #1f2933;
