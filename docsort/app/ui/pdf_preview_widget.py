@@ -97,27 +97,26 @@ class PdfPreviewWidget(QtWidgets.QWidget):
         old_doc = getattr(self, "document", None)
         if old_doc is self._empty_doc:
             old_doc = None
+        new_doc = QPdfDocument(self)
         try:
-            if old_doc:
-                old_doc.statusChanged.disconnect(self._on_status_changed)  # type: ignore[attr-defined]
-        except Exception:
-            pass
-        try:
-            self.view.setDocument(None)
-            logger.debug("PDF preview detached document (None)")
-        except Exception:
-            pass
-        try:
-            self.view.setDocument(self._empty_doc)
-            logger.debug("PDF preview swapped to empty document")
+            new_doc.statusChanged.connect(self._on_status_changed)  # type: ignore[attr-defined]
         except Exception as exc:  # noqa: BLE001
-            logger.debug("PDF preview swap to empty failed: %s", exc)
+            logger.warning("PDF preview: statusChanged connect failed after force release: %s", exc)
+        try:
+            self.view.setDocument(new_doc)
+            self.view.setPageMode(QPdfView.PageMode.SinglePage)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("PDF preview setDocument during release failed: %s", exc)
         try:
             QtWidgets.QApplication.processEvents()
             QtWidgets.QApplication.processEvents()
         except Exception:
             pass
         if old_doc:
+            try:
+                old_doc.statusChanged.disconnect(self._on_status_changed)  # type: ignore[attr-defined]
+            except Exception:
+                pass
             try:
                 old_doc.close()
                 logger.debug("PDF preview old document closed")
@@ -127,17 +126,7 @@ class PdfPreviewWidget(QtWidgets.QWidget):
                 old_doc.deleteLater()
             except Exception:
                 pass
-        new_doc = QPdfDocument(self)
-        try:
-            new_doc.statusChanged.connect(self._on_status_changed)  # type: ignore[attr-defined]
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("PDF preview: statusChanged connect failed after force release: %s", exc)
         self.document = new_doc
-        try:
-            self.view.setDocument(self.document)
-            self.view.setPageMode(QPdfView.PageMode.SinglePage)
-        except Exception as exc:  # noqa: BLE001
-            logger.debug("PDF preview setDocument failed after release: %s", exc)
         self._pending_page = None
         self._current_path = None
         try:

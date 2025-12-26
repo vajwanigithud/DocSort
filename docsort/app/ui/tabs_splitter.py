@@ -11,6 +11,7 @@ from docsort.app.core.state import AppState, DocumentItem
 from docsort.app.services import pdf_split_service, split_plan_service
 from docsort.app.storage import settings_store
 from docsort.app.ui.pdf_preview_widget import PdfPreviewWidget
+from docsort.app.ui.split_archive_cleanup_dialog import SplitArchiveCleanupDialog
 
 logger = logging.getLogger(__name__)
 
@@ -125,12 +126,15 @@ class SplitterTab(QtWidgets.QWidget):
         self.preview_btn = QtWidgets.QPushButton("Preview Plan")
         self.cut_all_btn = QtWidgets.QPushButton("Cut All 1-page")
         self.apply_btn = QtWidgets.QPushButton("Apply Split Plan")
+        self.cleanup_btn = QtWidgets.QPushButton("Cleanup Split Archive")
+        self.cleanup_btn.setToolTip("Safely delete archived originals only after verifying all split pages are accounted for.")
         self.send_parent_done = QtWidgets.QCheckBox("Send Parent to Done")
         self.send_parent_done.setChecked(True)
 
         side.addWidget(self.preview_btn)
         side.addWidget(self.cut_all_btn)
         side.addWidget(self.apply_btn)
+        side.addWidget(self.cleanup_btn)
         side.addWidget(self.send_parent_done)
 
         side.addWidget(QtWidgets.QLabel("Plan preview"))
@@ -144,6 +148,7 @@ class SplitterTab(QtWidgets.QWidget):
         self.preview_btn.clicked.connect(self._preview_plan)
         self.apply_btn.clicked.connect(self._apply_plan)
         self.cut_all_btn.clicked.connect(self._cut_all_singletons)
+        self.cleanup_btn.clicked.connect(self._open_cleanup_dialog)
         self.list_widget.itemSelectionChanged.connect(self._update_preview)
         self.thumb_list.itemSelectionChanged.connect(self._on_page_selected)
 
@@ -498,3 +503,16 @@ class SplitterTab(QtWidgets.QWidget):
         self.cursor_page = total + 1
         self.cut_radio.setChecked(True)
         self._preview_plan()
+
+    def _open_cleanup_dialog(self) -> None:
+        source_root = settings_store.get_source_root()
+        if not source_root:
+            QtWidgets.QMessageBox.warning(self, "Cleanup Split Archive", "Set Source folder in Settings first.")
+            return
+        try:
+            source_root_path = Path(source_root).resolve()
+        except Exception as exc:  # noqa: BLE001
+            QtWidgets.QMessageBox.warning(self, "Cleanup Split Archive", f"Invalid source folder: {exc}")
+            return
+        dlg = SplitArchiveCleanupDialog(self, source_root_path)
+        dlg.exec()
