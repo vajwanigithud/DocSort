@@ -33,6 +33,8 @@ class RenameMoveTab(QtWidgets.QWidget):
         self._active_worker: Optional[MoveWorker] = None
         self._active_thread: Optional[QtCore.QThread] = None
         self._suggest_cache: Dict[str, str] = {}
+        self._suggestions_map: Dict[str, List[str]] = {}
+        self._selected_suggestion_idx: Dict[str, int] = {}
         self._programmatic_update: bool = False
         self._active_doc_key: Optional[str] = None
         self._build_ui()
@@ -63,27 +65,14 @@ class RenameMoveTab(QtWidgets.QWidget):
 
         side = QtWidgets.QVBoxLayout()
 
-        rename_group = QtWidgets.QGroupBox("Rename Options")
-        rename_layout = QtWidgets.QVBoxLayout(rename_group)
-        self.option_a = QtWidgets.QRadioButton("A) Date-DD-MM-YYYY + ID (no spaces)")
-        self.option_b = QtWidgets.QRadioButton("B) Source name")
-        self.option_c = QtWidgets.QRadioButton("C) Suggested name")
-        self.option_d = QtWidgets.QRadioButton("D) Custom pattern")
+        self.suggestions_label = QtWidgets.QLabel("Suggested Filenames")
+        self.suggestions_list = QtWidgets.QListWidget()
+        self.suggestions_list.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
         self.manual_edit = QtWidgets.QLineEdit()
-        self.manual_edit.setPlaceholderText("Manual name")
-        self.option_a.setChecked(True)
-        rename_layout.addWidget(self.option_a)
-        rename_layout.addWidget(self.option_b)
-        rename_layout.addWidget(self.option_c)
-        rename_layout.addWidget(self.option_d)
-        rename_layout.addWidget(QtWidgets.QLabel("Manual"))
-        rename_layout.addWidget(self.manual_edit)
-        side.addWidget(rename_group)
-
-        self.preview_field = QtWidgets.QLineEdit()
-        self.preview_field.setReadOnly(True)
+        self.manual_edit.setPlaceholderText("Manual filename")
         self.final_field = QtWidgets.QLineEdit()
         self.final_field.setPlaceholderText("Final filename")
+        self.final_field.setReadOnly(True)
 
         folder_row = QtWidgets.QHBoxLayout()
         self.folder_dropdown = QtWidgets.QComboBox()
@@ -99,8 +88,10 @@ class RenameMoveTab(QtWidgets.QWidget):
         self.to_splitter_btn = QtWidgets.QPushButton("Send to Splitter")
         self.to_attention_btn = QtWidgets.QPushButton("Needs Attention")
 
-        side.addWidget(QtWidgets.QLabel("Live preview"))
-        side.addWidget(self.preview_field)
+        side.addWidget(self.suggestions_label)
+        side.addWidget(self.suggestions_list)
+        side.addWidget(QtWidgets.QLabel("Manual filename"))
+        side.addWidget(self.manual_edit)
         side.addWidget(QtWidgets.QLabel("Final filename"))
         side.addWidget(self.final_field)
         side.addLayout(folder_row)
@@ -113,11 +104,9 @@ class RenameMoveTab(QtWidgets.QWidget):
         layout.addLayout(side, 1)
 
         self.list_widget.itemSelectionChanged.connect(self._sync_fields_from_selection)
-        for rb in [self.option_a, self.option_b, self.option_c, self.option_d]:
-            rb.toggled.connect(self._update_preview)
-        self.option_c.toggled.connect(self._on_option_c_selected)
         self.manual_edit.textEdited.connect(self._on_manual_edited)
         self.final_field.textEdited.connect(self._on_final_edited)
+        self.suggestions_list.itemSelectionChanged.connect(self._on_suggestion_selected)
         self.create_folder_btn.clicked.connect(self._create_folder)
         self.confirm_btn.clicked.connect(self._confirm_current)
         self.bulk_confirm_btn.clicked.connect(self._bulk_confirm)
@@ -176,14 +165,12 @@ class RenameMoveTab(QtWidgets.QWidget):
 
     def _final_filename_for_doc(self, doc: DocumentItem) -> str:
         key = self._doc_key(doc)
-        name = self._manual_overrides.get(key)
-        if not name:
-            if doc.doctype == "Type" and doc.number == "000":
-                # Avoid placeholder in UI; prefer empty to indicate detecting
-                logger.info("Using empty/detecting placeholder to avoid Type_000 key=%s", key)
-                name = ""
-            else:
-                name = self._get_option_a_name(doc)
+        if key in self._manual_overrides:
+            name = self._manual_overrides.get(key, "")
+        else:
+            suggestions = self._get_suggestions_for_doc(doc)
+            sel_idx = self._selected_suggestion_idx.get(key, 0)
+            name = suggestions[sel_idx] if suggestions else self._get_option_a_name(doc)
         name = naming_service.enforce_no_spaces(name)
         if name and not name.lower().endswith(".pdf"):
             name = f"{name}.pdf"
@@ -191,25 +178,19 @@ class RenameMoveTab(QtWidgets.QWidget):
 
     def _recompute_suggestion(self, doc: DocumentItem, reason: str = "") -> str:
         key = self._doc_key(doc)
-        filename = self._get_option_a_name(doc)
-        current_final = self.final_field.text().strip()
+        self._suggest_cache.pop(f"{Path(doc.source_path).resolve()}::{self.folder_dropdown.currentText() or ''}", None)
+        self._suggestions_map.pop(key, None)
+        self._populate_suggestions_ui(doc)
+        self._apply_final_display(doc)
         logger.info(
-            "Recompute suggestion reason=%s key=%s type=%s number=%s date=%s -> %s",
+            "Recompute suggestion reason=%s key=%s type=%s number=%s date=%s",
             reason,
             key,
             doc.doctype,
             doc.number,
             doc.date_str,
-            filename,
         )
-        if self._is_placeholder_filename(current_final):
-            logger.info("Placeholder detected in final field, replacing with suggestion key=%s", key)
-        self._set_final_text_programmatically(filename)
-        # Keep manual field aligned with suggestion for option A/C when no override
-        if not self._manual_overrides.get(key):
-            self._set_manual_text_programmatically(filename)
-        self.preview_field.setText(filename)
-        return filename
+        return self.final_field.text()
 
     def _on_final_edited(self, text: str) -> None:
         doc = self._selected_item()
@@ -266,16 +247,6 @@ class RenameMoveTab(QtWidgets.QWidget):
         stem = self._sanitize_filename(stem)
         return stem
 
-    def _on_option_c_selected(self, checked: bool) -> None:
-        if not checked:
-            return
-        doc = self._selected_item()
-        if not doc:
-            return
-        suggested = self._get_suggested_name(doc)
-        self._set_manual_text_programmatically(suggested)
-        self._update_preview()
-
     def _get_suggested_name(self, doc: DocumentItem) -> str:
         folder_name = self.folder_dropdown.currentText() or ""
         resolved = str(Path(doc.source_path).resolve())
@@ -294,10 +265,75 @@ class RenameMoveTab(QtWidgets.QWidget):
         self._suggest_cache[key] = suggested
         return suggested
 
+    def _get_suggestions_for_doc(self, doc: DocumentItem) -> List[str]:
+        key = self._doc_key(doc)
+        if key in self._suggestions_map:
+            return self._suggestions_map[key]
+        suggestions: List[str] = []
+        opt_a = self._get_option_a_name(doc)
+        if opt_a:
+            suggestions.append(opt_a)
+        try:
+            suggested = self._get_suggested_name(doc)
+            if suggested:
+                suggestions.append(suggested)
+        except Exception:
+            pass
+        fallback = f"{Path(doc.source_path).stem}.pdf"
+        suggestions.append(fallback)
+        seen = set()
+        deduped = []
+        for s in suggestions:
+            if s in seen:
+                continue
+            seen.add(s)
+            deduped.append(s)
+        self._suggestions_map[key] = deduped
+        return deduped
+
+    def _populate_suggestions_ui(self, doc: DocumentItem) -> None:
+        key = self._doc_key(doc)
+        suggestions = self._get_suggestions_for_doc(doc)
+        self._programmatic_update = True
+        self.suggestions_list.clear()
+        for s in suggestions:
+            self.suggestions_list.addItem(s)
+        if suggestions:
+            sel_idx = self._selected_suggestion_idx.get(key, 0)
+            sel_idx = min(sel_idx, len(suggestions) - 1)
+            self.suggestions_list.setCurrentRow(sel_idx)
+            self._selected_suggestion_idx[key] = sel_idx
+        self._programmatic_update = False
+
+    def _apply_final_display(self, doc: DocumentItem) -> None:
+        key = self._doc_key(doc)
+        manual = self._manual_overrides.get(key, "").strip()
+        if manual:
+            final_name = manual
+        else:
+            suggestions = self._get_suggestions_for_doc(doc)
+            if suggestions:
+                sel_idx = self._selected_suggestion_idx.get(key, 0)
+                sel_idx = min(sel_idx, len(suggestions) - 1)
+                final_name = suggestions[sel_idx]
+            else:
+                final_name = self._get_option_a_name(doc)
+        self._set_final_text_programmatically(final_name)
+
+    def _on_suggestion_selected(self) -> None:
+        if self._programmatic_update:
+            return
+        doc = self._selected_item()
+        if not doc:
+            return
+        key = self._doc_key(doc)
+        self._selected_suggestion_idx[key] = self.suggestions_list.currentRow()
+        self._apply_final_display(doc)
+
     def _update_preview(self) -> None:
         doc = self._selected_item()
         if not doc:
-            self.preview_field.clear()
+            self.suggestions_list.clear()
             self.preview.clear()
             self.preview_label.setText("Preview")
             return
@@ -307,32 +343,18 @@ class RenameMoveTab(QtWidgets.QWidget):
             self._manual_overrides.pop(key, None)
             logger.info("Removed placeholder override for key=%s existing=%s", key, existing)
         manual_text = self.manual_edit.text().strip()
-        if self.option_c.isChecked():
-            if not manual_text:
-                manual_text = self._get_suggested_name(doc)
-                self._set_manual_text_programmatically(manual_text)
-            manual_name = self._sanitize_filename(manual_text)
-            if not manual_name.lower().endswith(".pdf"):
-                manual_name = f"{manual_name}.pdf"
-            self.preview_field.setText(manual_name)
-            if not self._programmatic_update and not self._is_placeholder_filename(manual_name):
-                self._manual_overrides[key] = manual_name
-                logger.info("Preview override set key=%s filename=%s", key, manual_name)
-            self._set_final_text_programmatically(manual_name)
-        elif manual_text:
+        self._populate_suggestions_ui(doc)
+        if manual_text:
             manual_name = naming_service.enforce_no_spaces(manual_text)
             if not manual_name.lower().endswith(".pdf"):
                 manual_name = f"{manual_name}.pdf"
-            self.preview_field.setText(manual_name)
             if not self._programmatic_update and not self._is_placeholder_filename(manual_name):
                 self._manual_overrides[key] = manual_name
                 logger.info("Preview manual override set key=%s filename=%s", key, manual_name)
-            self._set_final_text_programmatically(manual_name)
         else:
-            option_a = self._get_option_a_name(doc)
-            self.preview_field.setText(option_a)
-            if key not in self._manual_overrides:
-                self._set_final_text_programmatically(option_a)
+            if key in self._manual_overrides and self._is_placeholder_filename(self._manual_overrides[key]):
+                self._manual_overrides.pop(key, None)
+        self._apply_final_display(doc)
         self._update_pdf_preview(doc)
 
     def _update_pdf_preview(self, doc: DocumentItem) -> None:
@@ -387,15 +409,18 @@ class RenameMoveTab(QtWidgets.QWidget):
     def _sync_fields_from_selection(self) -> None:
         doc = self._selected_item()
         if not doc:
-            self.preview_field.clear()
             self.final_field.clear()
             self.preview.clear()
             self.preview_label.setText("Preview")
             return
         self._active_doc_key = self._doc_key(doc)
         self.manual_edit.clear()
-        final_name = self._final_filename_for_doc(doc)
-        self._set_final_text_programmatically(final_name)
+        key = self._doc_key(doc)
+        manual_existing = self._manual_overrides.get(key, "")
+        if manual_existing:
+            self._set_manual_text_programmatically(manual_existing)
+        self._populate_suggestions_ui(doc)
+        self._apply_final_display(doc)
         self._update_preview()
 
     def _create_folder(self) -> None:
