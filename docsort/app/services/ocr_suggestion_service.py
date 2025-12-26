@@ -3,7 +3,7 @@ import logging
 import re
 import time
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 from docsort.app.services import pdf_utils, naming_service
 
@@ -53,7 +53,7 @@ def _deskew_binary(image_gray, cv2, np):
     return cv2.warpAffine(image_gray, m, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
 
 
-def _preprocess_with_cv2(pil_image):
+def _preprocess_with_cv2(pil_image: "Image") -> "Image":
     cv2, np = _try_import_cv2()
     if not cv2 or not np:
         raise RuntimeError("cv2 not available")
@@ -91,7 +91,7 @@ def _preprocess_with_cv2(pil_image):
     return Image.fromarray(cleaned)
 
 
-def _preprocess_with_pil_only(pil_image):
+def _preprocess_with_pil_only(pil_image: "Image") -> "Image":
     if not Image:
         return pil_image
     gray = pil_image.convert("L")
@@ -108,7 +108,7 @@ def _preprocess_with_pil_only(pil_image):
     return binarized
 
 
-def preprocess_for_ocr(pil_image):
+def preprocess_for_ocr(pil_image: "Image") -> "Image":
     try:
         return _preprocess_with_cv2(pil_image)
     except Exception:
@@ -116,6 +116,19 @@ def preprocess_for_ocr(pil_image):
             return _preprocess_with_pil_only(pil_image)
         except Exception:
             return pil_image
+
+
+def _text_quality_score(text: str) -> float:
+    if not text:
+        return 0.0
+    lower = text.lower()
+    word_count = len(text.split())
+    alpha_chars = sum(1 for c in text if c.isalpha())
+    total_chars = len(text)
+    alpha_ratio = alpha_chars / total_chars if total_chars else 0.0
+    invoice_tokens = ["invoice", "tax invoice", "trn", "total", "date", "invoice no", "inv no"]
+    token_hits = sum(1 for tok in invoice_tokens if tok in lower)
+    return (word_count * 1.0) + (alpha_ratio * 40.0) + (token_hits * 6.0)
 
 
 def _cache_key(path: Path, max_pages: int) -> str:
@@ -164,7 +177,7 @@ def _try_ocr(path: Path, max_pages: int) -> str:
     except Exception:
         pass
 
-    def _ocr_page(doc_obj, page_idx: int, scale: float, psm: int) -> str:
+    def _ocr_page(doc_obj, page_idx: int, scale: float, psm: int) -> Tuple[str, str]:
         try:
             if not Image:
                 raise RuntimeError("PIL not available")
@@ -178,11 +191,28 @@ def _try_ocr(path: Path, max_pages: int) -> str:
                 logger.debug("OCR preprocess failed path=%s p=%s scale=%s err=%s", path, page_idx, scale, exc)
                 processed_image = image
             processed_image = processed_image.convert("L")
-            config = f"--oem 1 --psm {psm}"
-            return pytesseract.image_to_string(processed_image, lang="eng", config=config)
+            lang_candidates = ["eng+osd", "eng"]
+            last_lang = lang_candidates[-1]
+            for lang_candidate in lang_candidates:
+                try:
+                    config = f"--oem 3 --psm {psm}"
+                    text = pytesseract.image_to_string(processed_image, lang=lang_candidate, config=config)
+                    return text, lang_candidate
+                except Exception as tess_exc:  # noqa: BLE001
+                    last_lang = lang_candidate
+                    logger.debug(
+                        "OCR tesseract attempt failed path=%s p=%s scale=%s psm=%s lang=%s err=%s",
+                        path,
+                        page_idx,
+                        scale,
+                        psm,
+                        lang_candidate,
+                        tess_exc,
+                    )
+            return "", last_lang
         except Exception as exc:  # noqa: BLE001
             logger.debug("OCR page render failed p=%s scale=%s for %s: %s", page_idx, scale, path, exc)
-            return ""
+            return "", ""
 
     try:
         doc = fitz.open(path)
@@ -195,28 +225,39 @@ def _try_ocr(path: Path, max_pages: int) -> str:
         return len(val) < _WEAK_TEXT_CHARS or len(val.split()) < _WEAK_TEXT_WORDS
 
     def _ocr_page_with_retries(doc_obj, page_idx: int) -> str:
-        attempt_settings = [(2.0, 6), (1.6, 4)]
-        best = ""
-        for attempt_idx, (scale, psm) in enumerate(attempt_settings):
-            text = _ocr_page(doc_obj, page_idx, scale, psm)
-            chars = len(text)
-            words = len(text.split())
-            retry = _is_weak_text(text) and attempt_idx + 1 < len(attempt_settings)
-            logger.info(
-                "OCR attempt path=%s page=%s scale=%.2f psm=%s retry=%s chars=%s words=%s",
-                path,
-                page_idx,
-                scale,
-                psm,
-                retry,
-                chars,
-                words,
-            )
-            if chars > len(best):
-                best = text
-            if not retry:
+        scale_psm_plan = [
+            (300 / 72, [11, 6, 4]),
+            (2.5, [11, 6, 4]),
+        ]
+        best_text = ""
+        best_score = -1.0
+        for scale_idx, (scale, psms) in enumerate(scale_psm_plan):
+            for psm in psms:
+                text, lang_used = _ocr_page(doc_obj, page_idx, scale, psm)
+                score = _text_quality_score(text)
+                chars = len(text)
+                words = len(text.split())
+                is_retry = _is_weak_text(text)
+                is_best = score > best_score
+                if is_best:
+                    best_text = text
+                    best_score = score
+                logger.info(
+                    "OCR attempt path=%s page=%s scale=%.2f psm=%s lang=%s retry=%s chars=%s words=%s score=%.2f best=%s",
+                    path,
+                    page_idx,
+                    scale,
+                    psm,
+                    lang_used,
+                    is_retry,
+                    chars,
+                    words,
+                    score,
+                    is_best,
+                )
+            if best_text and not _is_weak_text(best_text):
                 break
-        return best
+        return best_text
 
     max_pages_to_use = min(max_pages, doc.page_count, OCR_MAX_PAGES)
     try:
@@ -268,10 +309,10 @@ def build_ocr_suggestions(text: str, fallback_stem: str) -> List[str]:
 
     def find_number() -> str:
         patterns = [
-            r"(?:invoice|inv)[^\d]{0,15}(\d{2,8})",
-            r"(?:estimate)[^\d]{0,15}(\d{2,8})",
-            r"(?:receipt)[^\d]{0,15}(\d{2,8})",
-            r"(?:no\.?|number|#)[^\d]{0,10}(\d{2,8})",
+            r"(?:invoice|inv)[^\w]{0,15}([A-Z0-9][A-Z0-9\-]{2,20})",
+            r"(?:estimate)[^\w]{0,15}([A-Z0-9][A-Z0-9\-]{2,20})",
+            r"(?:receipt)[^\w]{0,15}([A-Z0-9][A-Z0-9\-]{2,20})",
+            r"(?:no\.?|number|#)[^\w]{0,10}([A-Z0-9][A-Z0-9\-]{2,20})",
         ]
         for pat in patterns:
             m = re.search(pat, text_lower, re.IGNORECASE)
@@ -299,10 +340,27 @@ def build_ocr_suggestions(text: str, fallback_stem: str) -> List[str]:
         lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
         if not lines:
             return ""
-        top = lines[0]
-        if len(lines) > 1 and len(lines[1]) > len(top):
-            top = lines[1]
-        return re.sub(r"[^\w\s\-\.]", "", top)[:30]
+        candidates = lines[:7]
+        best = ""
+        best_score = -1.0
+        vendor_keywords = ["llc", "ltd", "trading", "fze", "inc", "pty", "plc"]
+        for raw in candidates:
+            cleaned = re.sub(r"[^\w\s\-\.\&]", "", raw)
+            if not cleaned:
+                continue
+            letters = sum(1 for c in cleaned if c.isalpha())
+            upper = sum(1 for c in cleaned if c.isupper())
+            upper_ratio = upper / letters if letters else 0
+            score = len(cleaned) + (upper_ratio * 10)
+            lower = cleaned.lower()
+            if any(k in lower for k in vendor_keywords):
+                score += 8
+            if len(cleaned.split()) <= 1:
+                score -= 2
+            if score > best_score:
+                best_score = score
+                best = cleaned
+        return best[:30]
 
     doc_type = find_doc_type()
     number = find_number()
