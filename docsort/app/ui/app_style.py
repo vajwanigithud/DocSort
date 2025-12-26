@@ -125,6 +125,22 @@ def apply_app_style(app: QtWidgets.QApplication) -> None:
         padding: 0 4px;
     }
 
+    /* Radio buttons */
+    QRadioButton::indicator {
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        border: 1px solid #7a8699;
+        background: #ffffff;
+    }
+    QRadioButton::indicator:checked {
+        border: 1px solid #4c8bf5;
+        background: qradialgradient(cx:0.5, cy:0.5, radius:0.6, fx:0.5, fy:0.5, stop:0 #4c8bf5, stop:1 #ffffff);
+    }
+    QRadioButton {
+        color: #1f2933;
+    }
+
     /* ScrollBars */
     QScrollBar:vertical {
         border: none;

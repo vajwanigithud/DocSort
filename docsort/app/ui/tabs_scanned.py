@@ -1,11 +1,13 @@
+import logging
 import uuid
 from pathlib import Path
 
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from docsort.app.core.state import AppState, DocumentItem
 from docsort.app.services import pdf_utils, routing_service
 from docsort.app.storage import settings_store
+from docsort.app.ui.pdf_preview_widget import PdfPreviewWidget
 
 
 class ScannedTab(QtWidgets.QWidget):
@@ -15,6 +17,7 @@ class ScannedTab(QtWidgets.QWidget):
         self.refresh_all = refresh_all
         self.start_monitor_cb = start_monitor
         self.stop_monitor_cb = stop_monitor
+        self.log = logging.getLogger(__name__)
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -39,10 +42,15 @@ class ScannedTab(QtWidgets.QWidget):
         self.list_widget = QtWidgets.QListWidget()
         layout.addWidget(self.list_widget, 1)
 
-        self.preview = QtWidgets.QLabel("Preview")
-        self.preview.setAlignment(QtCore.Qt.AlignCenter)
-        self.preview.setStyleSheet("border: 1px solid #ccc; background: #fafafa; padding: 12px;")
-        layout.addWidget(self.preview, 2)
+        self.preview_pdf = PdfPreviewWidget()
+        self.preview_image = QtWidgets.QLabel("Preview")
+        self.preview_image.setAlignment(QtCore.Qt.AlignCenter)
+        self.preview_image.setStyleSheet("border: 1px solid #ccc; background: #fafafa; padding: 12px;")
+        self.preview_stack = QtWidgets.QStackedWidget()
+        self.preview_stack.addWidget(self.preview_pdf)
+        self.preview_stack.addWidget(self.preview_image)
+        self.preview_stack.setCurrentWidget(self.preview_image)
+        layout.addWidget(self.preview_stack, 2)
 
         actions = QtWidgets.QVBoxLayout()
         self.to_splitter_btn = QtWidgets.QPushButton("Send to Splitter")
@@ -50,14 +58,17 @@ class ScannedTab(QtWidgets.QWidget):
         actions.addWidget(self.to_splitter_btn)
         actions.addWidget(self.to_rename_btn)
 
-        actions.addWidget(QtWidgets.QLabel("Routing"))
+        routing_group = QtWidgets.QGroupBox("Routing")
+        routing_layout = QtWidgets.QVBoxLayout(routing_group)
         self.route_auto = QtWidgets.QRadioButton("Auto")
         self.route_split = QtWidgets.QRadioButton("Send to Splitter")
         self.route_rename = QtWidgets.QRadioButton("Send to Rename & Move")
         self.route_auto.setChecked(True)
-        actions.addWidget(self.route_auto)
-        actions.addWidget(self.route_split)
-        actions.addWidget(self.route_rename)
+        self.route_group = QtWidgets.QButtonGroup(self)
+        for rb in [self.route_auto, self.route_split, self.route_rename]:
+            self.route_group.addButton(rb)
+            routing_layout.addWidget(rb)
+        actions.addWidget(routing_group)
 
         self.route_now_btn = QtWidgets.QPushButton("Route Now")
         self.auto_route_all_btn = QtWidgets.QPushButton("Auto-route all")
@@ -72,6 +83,7 @@ class ScannedTab(QtWidgets.QWidget):
         actions.addStretch()
         layout.addLayout(actions, 1)
 
+        self.list_widget.itemSelectionChanged.connect(self._update_preview)
         self.to_splitter_btn.clicked.connect(self._send_to_splitter)
         self.to_rename_btn.clicked.connect(self._send_to_rename)
         self.route_now_btn.clicked.connect(self._route_selected)
@@ -131,6 +143,9 @@ class ScannedTab(QtWidgets.QWidget):
             item = QtWidgets.QListWidgetItem(f"{doc.display_name} ({doc.page_count}p)")
             item.setData(QtCore.Qt.UserRole, doc)
             self.list_widget.addItem(item)
+        if self.list_widget.count() and self.list_widget.currentRow() < 0:
+            self.list_widget.setCurrentRow(0)
+        self._update_preview()
 
     def _refresh_from_source(self) -> None:
         source_root = settings_store.get_source_root()
@@ -176,3 +191,44 @@ class ScannedTab(QtWidgets.QWidget):
         if new_items:
             self.state.scanned_items.extend(new_items)
         self.refresh()
+
+    def _clear_preview(self) -> None:
+        self.preview_pdf.clear()
+        self.preview_image.setPixmap(QtGui.QPixmap())
+        self.preview_image.setText("Preview")
+        self.preview_stack.setCurrentWidget(self.preview_image)
+
+    def _update_preview(self) -> None:
+        doc = self._selected_item()
+        if not doc:
+            self._clear_preview()
+            return
+        path = Path(doc.source_path)
+        if not path.exists():
+            self._clear_preview()
+            self.preview_image.setText("Preview unavailable")
+            return
+        try:
+            if path.suffix.lower() == ".pdf":
+                self.preview_pdf.force_release_document()
+                ok = self.preview_pdf.load_pdf(str(path))
+                if ok:
+                    self.preview_pdf.set_page(0)
+                    self.preview_stack.setCurrentWidget(self.preview_pdf)
+                    self.log.info("Scanned preview loaded PDF: %s", path)
+                else:
+                    self._clear_preview()
+                    self.preview_image.setText("Preview unavailable")
+            else:
+                pix = QtGui.QPixmap(str(path))
+                if pix.isNull():
+                    self._clear_preview()
+                    self.preview_image.setText("Preview unavailable")
+                else:
+                    self.preview_image.setPixmap(pix.scaled(self.preview_image.size(), QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation))
+                    self.preview_stack.setCurrentWidget(self.preview_image)
+                    self.log.info("Scanned preview loaded image: %s", path)
+        except Exception as exc:  # noqa: BLE001
+            self.log.warning("Scanned preview failed for %s: %s", path, exc)
+            self._clear_preview()
+            self.preview_image.setText("Preview unavailable")
