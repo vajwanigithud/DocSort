@@ -57,22 +57,7 @@ class ScannedTab(QtWidgets.QWidget):
         self.to_rename_btn = QtWidgets.QPushButton("Send to Rename & Move")
         actions.addWidget(self.to_splitter_btn)
         actions.addWidget(self.to_rename_btn)
-
-        routing_group = QtWidgets.QGroupBox("Routing")
-        routing_layout = QtWidgets.QVBoxLayout(routing_group)
-        self.route_auto = QtWidgets.QRadioButton("Auto")
-        self.route_split = QtWidgets.QRadioButton("Send to Splitter")
-        self.route_rename = QtWidgets.QRadioButton("Send to Rename & Move")
-        self.route_auto.setChecked(True)
-        self.route_group = QtWidgets.QButtonGroup(self)
-        for rb in [self.route_auto, self.route_split, self.route_rename]:
-            self.route_group.addButton(rb)
-            routing_layout.addWidget(rb)
-        actions.addWidget(routing_group)
-
-        self.route_now_btn = QtWidgets.QPushButton("Route Now")
         self.auto_route_all_btn = QtWidgets.QPushButton("Auto-route all")
-        actions.addWidget(self.route_now_btn)
         actions.addWidget(self.auto_route_all_btn)
 
         rule_label = QtWidgets.QLabel("Images default to Rename & Move. PDFs default to Auto.")
@@ -86,7 +71,6 @@ class ScannedTab(QtWidgets.QWidget):
         self.list_widget.itemSelectionChanged.connect(self._update_preview)
         self.to_splitter_btn.clicked.connect(self._send_to_splitter)
         self.to_rename_btn.clicked.connect(self._send_to_rename)
-        self.route_now_btn.clicked.connect(self._route_selected)
         self.auto_route_all_btn.clicked.connect(self._auto_route_all)
         self.refresh_btn.clicked.connect(self._refresh_from_source)
         self.start_monitor_btn.clicked.connect(self.start_monitor_cb)
@@ -110,20 +94,6 @@ class ScannedTab(QtWidgets.QWidget):
         if selected:
             self.state.move_between_named_lists("scanned_items", "rename_items", selected.id)
             self.refresh_all()
-
-    def _route_selected(self) -> None:
-        selected = self._selected_item()
-        if not selected:
-            return
-        selected.route_hint = (
-            "SPLIT" if self.route_split.isChecked() else "RENAME" if self.route_rename.isChecked() else "AUTO"
-        )
-        target = routing_service.route_item(selected)
-        if target == "splitter":
-            self.state.move_between_named_lists("scanned_items", "splitter_items", selected.id)
-        else:
-            self.state.move_between_named_lists("scanned_items", "rename_items", selected.id)
-        self.refresh_all()
 
     def _auto_route_all(self) -> None:
         routes = routing_service.route_items(self.state.scanned_items)
