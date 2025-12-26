@@ -120,7 +120,7 @@ class RenameMoveTab(QtWidgets.QWidget):
         return [self.list_widget.item(i) for i in range(self.list_widget.count())]
 
     def _get_option_a_name(self, doc: DocumentItem) -> str:
-        return naming_service.build_option_a(doc.vendor, doc.doctype, doc.number, doc.date_str)
+        return naming_service.build_option_a(doc.vendor, doc.doctype, doc.number, doc.date_str, Path(doc.source_path).stem)
 
     def _final_filename_for_doc(self, doc: DocumentItem) -> str:
         name = self._manual_overrides.get(doc.id) or self._get_option_a_name(doc)

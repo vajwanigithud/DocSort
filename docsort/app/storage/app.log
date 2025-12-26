@@ -2963,3 +2963,719 @@ PermissionError: [WinError 32] The process cannot access the file because it is 
 2025-12-25 17:37:40,198 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
 2025-12-25 17:37:52,786 [INFO] docsort.app.ui.main_window: Scheduling poller stop
 2025-12-25 17:37:52,786 [INFO] docsort.app.services.source_poller: Source poller stop requested for C:\Users\User\Desktop\Scanned Files
+2025-12-25 17:41:53,479 [INFO] docsort.app.utils.logging_setup: Logging configured. File: C:\DocSort\docsort\app\storage\app.log
+2025-12-25 17:41:53,519 [DEBUG] docsort.app.storage.settings_store: get_watcher_enabled -> True
+2025-12-25 17:41:53,520 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:41:53,522 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:41:53,560 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-25 17:41:53,575 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-25 17:41:53,587 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:41:53,589 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:41:53,590 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:41:53,591 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:41:53,591 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:41:53,592 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:41:53,594 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:41:53,595 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:41:56,682 [INFO] docsort.app.ui.main_window: Scheduling poller start at C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:41:56,683 [INFO] docsort.app.services.source_poller: Source poller started for C:\Users\User\Desktop\Scanned Files
+2025-12-25 17:41:56,876 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=1 path=C:\Users\User\Desktop\Scanned Files\jbgjygyu.pdf
+2025-12-25 17:41:56,884 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=29 path=C:\Users\User\Desktop\Scanned Files\Receipt_2025-12-23_102918.pdf
+2025-12-25 17:41:56,888 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=1 path=C:\Users\User\Desktop\Scanned Files\test1.pdf
+2025-12-25 17:41:56,889 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:41:56,891 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:41:56,892 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:41:56,893 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:41:56,893 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:41:56,894 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:41:56,896 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:41:56,897 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:42:03,908 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:42:03,910 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:42:03,911 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:42:03,911 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:42:03,912 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:42:03,912 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:42:03,914 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:42:03,914 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:42:07,132 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:42:07,132 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:42:07,133 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:42:07,133 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:42:07,134 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:42:07,134 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:42:10,803 [INFO] docsort.app.ui.tabs_rename_move: Rename preview load start: C:\Users\User\Desktop\Scanned Files\jbgjygyu.pdf
+2025-12-25 17:42:10,804 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Loading path=C:\Users\User\Desktop\Scanned Files\jbgjygyu.pdf
+2025-12-25 17:42:10,818 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Ready path=C:\Users\User\Desktop\Scanned Files\jbgjygyu.pdf
+2025-12-25 17:42:10,819 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview ready path=C:\Users\User\Desktop\Scanned Files\jbgjygyu.pdf pageCount=1
+2025-12-25 17:42:10,819 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 17:42:10,819 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview load started path=C:\Users\User\Desktop\Scanned Files\jbgjygyu.pdf status=Error.None_
+2025-12-25 17:42:10,820 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 17:42:10,820 [INFO] docsort.app.ui.tabs_rename_move: Rename preview loaded: C:\Users\User\Desktop\Scanned Files\jbgjygyu.pdf
+2025-12-25 17:42:10,842 [INFO] docsort.app.services.pdf_utils: PDF text extracted path=C:\Users\User\Desktop\Scanned Files\jbgjygyu.pdf pages=1
+2025-12-25 17:42:10,844 [INFO] docsort.app.ui.tabs_rename_move: Auto-detected fields: doctype=Invoice number=5329 date=2025-10-22 path=C:\Users\User\Desktop\Scanned Files\jbgjygyu.pdf
+2025-12-25 17:42:21,790 [INFO] docsort.app.ui.main_window: Scheduling poller stop
+2025-12-25 17:42:21,791 [INFO] docsort.app.services.source_poller: Source poller stop requested for C:\Users\User\Desktop\Scanned Files
+2025-12-25 17:42:26,657 [INFO] docsort.app.utils.logging_setup: Logging configured. File: C:\DocSort\docsort\app\storage\app.log
+2025-12-25 17:42:26,702 [DEBUG] docsort.app.storage.settings_store: get_watcher_enabled -> True
+2025-12-25 17:42:26,703 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:42:26,705 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:42:26,756 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-25 17:42:26,774 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-25 17:42:26,788 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:42:26,791 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:42:26,793 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:42:26,793 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:42:26,793 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:42:26,794 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:42:26,796 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:42:26,798 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:42:30,576 [INFO] docsort.app.ui.main_window: Scheduling poller start at C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:42:30,577 [INFO] docsort.app.services.source_poller: Source poller started for C:\Users\User\Desktop\Scanned Files
+2025-12-25 17:42:30,806 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=1 path=C:\Users\User\Desktop\Scanned Files\jbgjygyu.pdf
+2025-12-25 17:42:30,814 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=29 path=C:\Users\User\Desktop\Scanned Files\Receipt_2025-12-23_102918.pdf
+2025-12-25 17:42:30,818 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=1 path=C:\Users\User\Desktop\Scanned Files\test1.pdf
+2025-12-25 17:42:30,820 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:42:30,821 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:42:30,823 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:42:30,823 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:42:30,823 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:42:30,824 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:42:30,825 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:42:30,826 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:42:35,849 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:42:35,851 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:42:35,852 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:42:35,853 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:42:35,853 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:42:35,853 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:42:35,855 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:42:35,857 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:42:39,256 [INFO] docsort.app.ui.tabs_rename_move: Rename preview load start: C:\Users\User\Desktop\Scanned Files\jbgjygyu.pdf
+2025-12-25 17:42:39,257 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Loading path=C:\Users\User\Desktop\Scanned Files\jbgjygyu.pdf
+2025-12-25 17:42:39,268 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Ready path=C:\Users\User\Desktop\Scanned Files\jbgjygyu.pdf
+2025-12-25 17:42:39,268 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview ready path=C:\Users\User\Desktop\Scanned Files\jbgjygyu.pdf pageCount=1
+2025-12-25 17:42:39,268 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 17:42:39,269 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview load started path=C:\Users\User\Desktop\Scanned Files\jbgjygyu.pdf status=Error.None_
+2025-12-25 17:42:39,269 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 17:42:39,269 [INFO] docsort.app.ui.tabs_rename_move: Rename preview loaded: C:\Users\User\Desktop\Scanned Files\jbgjygyu.pdf
+2025-12-25 17:42:39,294 [INFO] docsort.app.services.pdf_utils: PDF text extracted path=C:\Users\User\Desktop\Scanned Files\jbgjygyu.pdf pages=1
+2025-12-25 17:42:39,295 [INFO] docsort.app.ui.tabs_rename_move: Auto-detected fields: doctype=Invoice number=5329 date=2025-10-22 path=C:\Users\User\Desktop\Scanned Files\jbgjygyu.pdf
+2025-12-25 17:42:44,982 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move clicked
+2025-12-25 17:42:44,984 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:42:44,984 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move begin: rename_items=3 done_items=0
+2025-12-25 17:42:44,985 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:42:44,986 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:42:44,987 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview force release
+2025-12-25 17:42:44,989 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document swap complete
+2025-12-25 17:42:44,994 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move paths: src=C:\Users\User\Desktop\Scanned Files\jbgjygyu.pdf dst=C:\Users\User\Desktop\Sorting\Invoice\Invoice_5329.pdf
+2025-12-25 17:42:45,000 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:42:45,000 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:42:45,003 [INFO] docsort.app.ui.tabs_rename_move: Move success (async) src=C:\Users\User\Desktop\Scanned Files\jbgjygyu.pdf dest=C:\Users\User\Desktop\Sorting\Invoice\Invoice_5329.pdf status=DONE
+2025-12-25 17:42:45,004 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:42:45,005 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:42:45,023 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:42:45,024 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:42:51,450 [INFO] docsort.app.ui.main_window: Scheduling poller stop
+2025-12-25 17:42:51,451 [INFO] docsort.app.services.source_poller: Source poller stop requested for C:\Users\User\Desktop\Scanned Files
+2025-12-25 17:44:27,874 [INFO] docsort.app.utils.logging_setup: Logging configured. File: C:\DocSort\docsort\app\storage\app.log
+2025-12-25 17:44:27,912 [DEBUG] docsort.app.storage.settings_store: get_watcher_enabled -> True
+2025-12-25 17:44:27,912 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:44:27,914 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:44:27,952 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-25 17:44:27,967 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-25 17:44:27,981 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:44:27,983 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:44:27,985 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:44:27,985 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:44:27,986 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:44:27,986 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:44:27,989 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:44:27,990 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:44:31,016 [INFO] docsort.app.ui.main_window: Scheduling poller start at C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:44:31,018 [INFO] docsort.app.services.source_poller: Source poller started for C:\Users\User\Desktop\Scanned Files
+2025-12-25 17:44:31,236 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=29 path=C:\Users\User\Desktop\Scanned Files\Receipt_2025-12-23_102918.pdf
+2025-12-25 17:44:31,263 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=1 path=C:\Users\User\Desktop\Scanned Files\sdfsdf.pdf
+2025-12-25 17:44:31,267 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=1 path=C:\Users\User\Desktop\Scanned Files\test1.pdf
+2025-12-25 17:44:31,269 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:44:31,270 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:44:31,272 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:44:31,272 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:44:31,273 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:44:31,273 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:44:31,275 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:44:31,276 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:44:36,121 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:44:36,123 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:44:36,124 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:44:36,124 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:44:36,124 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:44:36,125 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:44:36,127 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:44:36,128 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:44:39,014 [INFO] docsort.app.ui.tabs_rename_move: Rename preview load start: C:\Users\User\Desktop\Scanned Files\sdfsdf.pdf
+2025-12-25 17:44:39,016 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Loading path=C:\Users\User\Desktop\Scanned Files\sdfsdf.pdf
+2025-12-25 17:44:39,028 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Ready path=C:\Users\User\Desktop\Scanned Files\sdfsdf.pdf
+2025-12-25 17:44:39,028 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview ready path=C:\Users\User\Desktop\Scanned Files\sdfsdf.pdf pageCount=1
+2025-12-25 17:44:39,029 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 17:44:39,030 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview load started path=C:\Users\User\Desktop\Scanned Files\sdfsdf.pdf status=Error.None_
+2025-12-25 17:44:39,030 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 17:44:39,031 [INFO] docsort.app.ui.tabs_rename_move: Rename preview loaded: C:\Users\User\Desktop\Scanned Files\sdfsdf.pdf
+2025-12-25 17:44:39,056 [INFO] docsort.app.services.pdf_utils: PDF text extracted path=C:\Users\User\Desktop\Scanned Files\sdfsdf.pdf pages=1
+2025-12-25 17:44:39,058 [INFO] docsort.app.ui.tabs_rename_move: Auto-detected fields: doctype=Invoice number=5329 date=2025-10-22 path=C:\Users\User\Desktop\Scanned Files\sdfsdf.pdf
+2025-12-25 17:44:42,411 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move clicked
+2025-12-25 17:44:42,412 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:44:42,413 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move begin: rename_items=3 done_items=0
+2025-12-25 17:44:42,414 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:44:42,415 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:44:42,416 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview force release start
+2025-12-25 17:44:42,416 [DEBUG] docsort.app.ui.pdf_preview_widget: PDF preview detached current document
+2025-12-25 17:44:42,418 [DEBUG] docsort.app.ui.pdf_preview_widget: PDF preview navigator rebound
+2025-12-25 17:44:42,418 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document swap complete
+2025-12-25 17:44:42,422 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move paths: src=C:\Users\User\Desktop\Scanned Files\sdfsdf.pdf dst=C:\Users\User\Desktop\Sorting\Invoice\Invoice_5329.pdf
+2025-12-25 17:44:42,427 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:44:42,427 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:44:42,429 [INFO] docsort.app.ui.tabs_rename_move: Move success (async) src=C:\Users\User\Desktop\Scanned Files\sdfsdf.pdf dest=C:\Users\User\Desktop\Sorting\Invoice\Invoice_5329.pdf status=DONE
+2025-12-25 17:44:42,430 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:44:42,431 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:44:42,446 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:44:42,447 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:44:48,577 [INFO] docsort.app.ui.main_window: Scheduling poller stop
+2025-12-25 17:44:48,578 [INFO] docsort.app.services.source_poller: Source poller stop requested for C:\Users\User\Desktop\Scanned Files
+2025-12-25 17:46:27,624 [INFO] docsort.app.utils.logging_setup: Logging configured. File: C:\DocSort\docsort\app\storage\app.log
+2025-12-25 17:46:27,663 [DEBUG] docsort.app.storage.settings_store: get_watcher_enabled -> True
+2025-12-25 17:46:27,664 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:46:27,665 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:46:27,710 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-25 17:46:27,728 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-25 17:46:27,738 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:46:27,740 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:46:27,742 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:46:27,743 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:46:27,743 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:46:27,743 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:46:27,745 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:46:27,746 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:46:31,501 [INFO] docsort.app.ui.main_window: Scheduling poller start at C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:46:31,502 [INFO] docsort.app.services.source_poller: Source poller started for C:\Users\User\Desktop\Scanned Files
+2025-12-25 17:46:31,760 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=1 path=C:\Users\User\Desktop\Scanned Files\askjnadasd.pdf
+2025-12-25 17:46:31,768 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=29 path=C:\Users\User\Desktop\Scanned Files\Receipt_2025-12-23_102918.pdf
+2025-12-25 17:46:31,772 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=1 path=C:\Users\User\Desktop\Scanned Files\test1.pdf
+2025-12-25 17:46:31,773 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:46:31,774 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:46:31,776 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:46:31,776 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:46:31,776 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:46:31,777 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:46:31,779 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:46:31,780 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:46:42,035 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:46:42,037 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:46:42,038 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:46:42,039 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:46:42,039 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:46:42,040 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:46:42,042 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:46:42,043 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:46:45,088 [INFO] docsort.app.ui.tabs_rename_move: Rename preview load start: C:\Users\User\Desktop\Scanned Files\askjnadasd.pdf
+2025-12-25 17:46:45,089 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Loading path=C:\Users\User\Desktop\Scanned Files\askjnadasd.pdf
+2025-12-25 17:46:45,100 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Ready path=C:\Users\User\Desktop\Scanned Files\askjnadasd.pdf
+2025-12-25 17:46:45,100 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview ready path=C:\Users\User\Desktop\Scanned Files\askjnadasd.pdf pageCount=1
+2025-12-25 17:46:45,100 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 17:46:45,101 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview load started path=C:\Users\User\Desktop\Scanned Files\askjnadasd.pdf status=Error.None_
+2025-12-25 17:46:45,101 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 17:46:45,101 [INFO] docsort.app.ui.tabs_rename_move: Rename preview loaded: C:\Users\User\Desktop\Scanned Files\askjnadasd.pdf
+2025-12-25 17:46:45,126 [INFO] docsort.app.services.pdf_utils: PDF text extracted path=C:\Users\User\Desktop\Scanned Files\askjnadasd.pdf pages=1
+2025-12-25 17:46:45,128 [INFO] docsort.app.ui.tabs_rename_move: Auto-detected fields: doctype=Invoice number=5329 date=2025-10-22 path=C:\Users\User\Desktop\Scanned Files\askjnadasd.pdf
+2025-12-25 17:46:49,792 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move clicked
+2025-12-25 17:46:49,794 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:46:49,794 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move begin: rename_items=3 done_items=0
+2025-12-25 17:46:49,795 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:46:49,796 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:46:49,797 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview force release start
+2025-12-25 17:46:49,797 [DEBUG] docsort.app.ui.pdf_preview_widget: PDF preview detached current document
+2025-12-25 17:46:49,799 [DEBUG] docsort.app.ui.pdf_preview_widget: PDF preview navigator rebound
+2025-12-25 17:46:49,799 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document swap complete
+2025-12-25 17:46:49,803 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move paths: src=C:\Users\User\Desktop\Scanned Files\askjnadasd.pdf dst=C:\Users\User\Desktop\Sorting\Invoice\Invoice_5329.pdf
+2025-12-25 17:46:49,809 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:46:49,810 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:46:49,812 [INFO] docsort.app.ui.tabs_rename_move: Move success (async) src=C:\Users\User\Desktop\Scanned Files\askjnadasd.pdf dest=C:\Users\User\Desktop\Sorting\Invoice\Invoice_5329.pdf status=DONE
+2025-12-25 17:46:49,813 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:46:49,815 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:46:49,838 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:46:49,839 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:46:57,430 [INFO] docsort.app.ui.main_window: Scheduling poller stop
+2025-12-25 17:46:57,431 [INFO] docsort.app.services.source_poller: Source poller stop requested for C:\Users\User\Desktop\Scanned Files
+2025-12-25 17:48:47,757 [INFO] docsort.app.utils.logging_setup: Logging configured. File: C:\DocSort\docsort\app\storage\app.log
+2025-12-25 17:48:47,795 [DEBUG] docsort.app.storage.settings_store: get_watcher_enabled -> True
+2025-12-25 17:48:47,796 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:48:47,798 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:48:47,841 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-25 17:48:47,856 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-25 17:48:47,868 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:48:47,869 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:48:47,871 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:48:47,871 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:48:47,871 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:48:47,872 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:48:47,873 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:48:47,875 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:48:52,428 [INFO] docsort.app.ui.main_window: Scheduling poller start at C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:48:52,429 [INFO] docsort.app.services.source_poller: Source poller started for C:\Users\User\Desktop\Scanned Files
+2025-12-25 17:48:52,651 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=1 path=C:\Users\User\Desktop\Scanned Files\23424234.pdf
+2025-12-25 17:48:52,659 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=29 path=C:\Users\User\Desktop\Scanned Files\Receipt_2025-12-23_102918.pdf
+2025-12-25 17:48:52,663 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=1 path=C:\Users\User\Desktop\Scanned Files\test1.pdf
+2025-12-25 17:48:52,664 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:48:52,665 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:48:52,667 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:48:52,667 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:48:52,668 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:48:52,668 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:48:52,670 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:48:52,671 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:48:58,162 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:48:58,164 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:48:58,166 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:48:58,166 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:48:58,166 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:48:58,167 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:48:58,169 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:48:58,171 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:49:01,189 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:49:01,189 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:49:01,190 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:49:01,190 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:49:01,191 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:49:01,192 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:49:04,308 [INFO] docsort.app.ui.tabs_rename_move: Rename preview load start: C:\Users\User\Desktop\Scanned Files\23424234.pdf
+2025-12-25 17:49:04,309 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Loading path=C:\Users\User\Desktop\Scanned Files\23424234.pdf
+2025-12-25 17:49:04,323 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Ready path=C:\Users\User\Desktop\Scanned Files\23424234.pdf
+2025-12-25 17:49:04,324 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview ready path=C:\Users\User\Desktop\Scanned Files\23424234.pdf pageCount=1
+2025-12-25 17:49:04,324 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 17:49:04,324 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview load started path=C:\Users\User\Desktop\Scanned Files\23424234.pdf status=Error.None_
+2025-12-25 17:49:04,325 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 17:49:04,325 [INFO] docsort.app.ui.tabs_rename_move: Rename preview loaded: C:\Users\User\Desktop\Scanned Files\23424234.pdf
+2025-12-25 17:49:04,345 [INFO] docsort.app.services.pdf_utils: PDF text extracted path=C:\Users\User\Desktop\Scanned Files\23424234.pdf pages=1
+2025-12-25 17:49:04,347 [INFO] docsort.app.ui.tabs_rename_move: Auto-detected fields: doctype=Invoice number=5329 date=2025-10-22 path=C:\Users\User\Desktop\Scanned Files\23424234.pdf
+2025-12-25 17:49:35,510 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move clicked
+2025-12-25 17:49:35,511 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:49:35,512 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move begin: rename_items=3 done_items=0
+2025-12-25 17:49:35,512 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:49:35,514 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:49:35,514 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview force release start
+2025-12-25 17:49:35,516 [DEBUG] docsort.app.ui.pdf_preview_widget: PDF preview navigator rebound
+2025-12-25 17:49:35,516 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document swap complete
+2025-12-25 17:49:35,519 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move paths: src=C:\Users\User\Desktop\Scanned Files\23424234.pdf dst=C:\Users\User\Desktop\Sorting\Invoice\Invoice_5329.pdf
+2025-12-25 17:49:35,524 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:49:35,524 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:49:35,526 [INFO] docsort.app.ui.tabs_rename_move: Move success (async) src=C:\Users\User\Desktop\Scanned Files\23424234.pdf dest=C:\Users\User\Desktop\Sorting\Invoice\Invoice_5329.pdf status=DONE
+2025-12-25 17:49:35,527 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:49:35,529 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:49:35,550 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:49:35,566 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:49:41,362 [INFO] docsort.app.ui.main_window: Scheduling poller stop
+2025-12-25 17:49:41,363 [INFO] docsort.app.services.source_poller: Source poller stop requested for C:\Users\User\Desktop\Scanned Files
+2025-12-25 17:55:01,945 [INFO] docsort.app.utils.logging_setup: Logging configured. File: C:\DocSort\docsort\app\storage\app.log
+2025-12-25 17:55:01,985 [DEBUG] docsort.app.storage.settings_store: get_watcher_enabled -> True
+2025-12-25 17:55:01,986 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:55:01,988 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:55:02,035 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-25 17:55:02,051 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-25 17:55:02,064 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:55:02,065 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:55:02,067 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:55:02,067 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:55:02,068 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:55:02,068 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:55:02,070 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:55:02,071 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:55:08,732 [INFO] docsort.app.ui.main_window: Scheduling poller start at C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:55:08,733 [INFO] docsort.app.services.source_poller: Source poller started for C:\Users\User\Desktop\Scanned Files
+2025-12-25 17:55:08,817 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=29 path=C:\Users\User\Desktop\Scanned Files\Receipt_2025-12-23_102918.pdf
+2025-12-25 17:55:08,820 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=1 path=C:\Users\User\Desktop\Scanned Files\test1.pdf
+2025-12-25 17:55:08,821 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:55:08,823 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:55:08,824 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:55:08,825 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:55:08,825 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:55:08,826 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:55:08,829 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:55:08,830 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:55:18,325 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:55:18,327 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:55:18,328 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:55:18,328 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:55:18,329 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:55:18,329 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:55:18,332 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:55:18,333 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:55:21,507 [INFO] docsort.app.ui.tabs_rename_move: Rename preview load start: C:\Users\User\Desktop\Scanned Files\test1.pdf
+2025-12-25 17:55:21,508 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Loading path=C:\Users\User\Desktop\Scanned Files\test1.pdf
+2025-12-25 17:55:21,515 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Ready path=C:\Users\User\Desktop\Scanned Files\test1.pdf
+2025-12-25 17:55:21,515 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview ready path=C:\Users\User\Desktop\Scanned Files\test1.pdf pageCount=1
+2025-12-25 17:55:21,516 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 17:55:21,516 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview load started path=C:\Users\User\Desktop\Scanned Files\test1.pdf status=Error.None_
+2025-12-25 17:55:21,517 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 17:55:21,517 [INFO] docsort.app.ui.tabs_rename_move: Rename preview loaded: C:\Users\User\Desktop\Scanned Files\test1.pdf
+2025-12-25 17:55:21,591 [INFO] docsort.app.services.pdf_utils: PDF text extracted path=C:\Users\User\Desktop\Scanned Files\test1.pdf pages=1
+2025-12-25 17:55:21,618 [INFO] docsort.app.services.pdf_utils: Doc detect selection rule=keyword type=Estimate number=1016 date=03
+ESTIMATE 1016
+2025-12-25 17:55:21,618 [INFO] docsort.app.ui.tabs_rename_move: Auto-detected fields: doctype=Estimate number=1016 date=03
+ESTIMATE 1016 path=C:\Users\User\Desktop\Scanned Files\test1.pdf
+2025-12-25 17:55:30,150 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move clicked
+2025-12-25 17:55:30,151 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:55:30,152 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move begin: rename_items=3 done_items=0
+2025-12-25 17:55:30,152 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:55:30,154 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:55:30,154 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview force release start
+2025-12-25 17:55:30,156 [DEBUG] docsort.app.ui.pdf_preview_widget: PDF preview navigator rebound
+2025-12-25 17:55:30,156 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document swap complete
+2025-12-25 17:55:30,160 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move paths: src=C:\Users\User\Desktop\Scanned Files\test1.pdf dst=C:\Users\User\Desktop\Sorting\Invoice\Estimate_1016.pdf
+2025-12-25 17:55:30,167 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:55:30,168 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:55:30,169 [INFO] docsort.app.ui.tabs_rename_move: Move success (async) src=C:\Users\User\Desktop\Scanned Files\test1.pdf dest=C:\Users\User\Desktop\Sorting\Invoice\Estimate_1016.pdf status=DONE
+2025-12-25 17:55:30,171 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:55:30,173 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:55:30,193 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:55:30,194 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:56:33,847 [INFO] docsort.app.ui.main_window: Scheduling poller stop
+2025-12-25 17:56:33,847 [INFO] docsort.app.services.source_poller: Source poller stop requested for C:\Users\User\Desktop\Scanned Files
+2025-12-25 17:57:25,356 [INFO] docsort.app.utils.logging_setup: Logging configured. File: C:\DocSort\docsort\app\storage\app.log
+2025-12-25 17:57:25,393 [DEBUG] docsort.app.storage.settings_store: get_watcher_enabled -> True
+2025-12-25 17:57:25,394 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:57:25,396 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:57:25,442 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-25 17:57:25,457 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-25 17:57:25,468 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:57:25,469 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:57:25,471 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:57:25,471 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:57:25,471 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:57:25,472 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:57:25,473 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:57:25,474 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:57:30,012 [INFO] docsort.app.ui.main_window: Scheduling poller start at C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:57:30,014 [INFO] docsort.app.services.source_poller: Source poller started for C:\Users\User\Desktop\Scanned Files
+2025-12-25 17:57:30,216 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=1 path=C:\Users\User\Desktop\Scanned Files\adasdasd.pdf
+2025-12-25 17:57:30,241 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=1 path=C:\Users\User\Desktop\Scanned Files\asdasdasd.pdf
+2025-12-25 17:57:30,252 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=29 path=C:\Users\User\Desktop\Scanned Files\Receipt_2025-12-23_102918.pdf
+2025-12-25 17:57:30,254 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:57:30,255 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:57:30,257 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:57:30,257 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:57:30,257 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:57:30,258 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:57:30,260 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:57:30,261 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:57:36,650 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:57:36,652 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:57:36,653 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:57:36,653 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:57:36,654 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:57:36,654 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:57:36,656 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:57:36,657 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:57:39,822 [INFO] docsort.app.ui.tabs_rename_move: Rename preview load start: C:\Users\User\Desktop\Scanned Files\asdasdasd.pdf
+2025-12-25 17:57:39,823 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Loading path=C:\Users\User\Desktop\Scanned Files\asdasdasd.pdf
+2025-12-25 17:57:39,834 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Ready path=C:\Users\User\Desktop\Scanned Files\asdasdasd.pdf
+2025-12-25 17:57:39,834 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview ready path=C:\Users\User\Desktop\Scanned Files\asdasdasd.pdf pageCount=1
+2025-12-25 17:57:39,835 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 17:57:39,835 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview load started path=C:\Users\User\Desktop\Scanned Files\asdasdasd.pdf status=Error.None_
+2025-12-25 17:57:39,835 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 17:57:39,835 [INFO] docsort.app.ui.tabs_rename_move: Rename preview loaded: C:\Users\User\Desktop\Scanned Files\asdasdasd.pdf
+2025-12-25 17:57:39,877 [INFO] docsort.app.services.pdf_utils: PDF text extracted path=C:\Users\User\Desktop\Scanned Files\asdasdasd.pdf pages=1
+2025-12-25 17:57:39,882 [INFO] docsort.app.services.pdf_utils: Doc detect selection rule=keyword type=Invoice number=5329 date=2025-10-22
+2025-12-25 17:57:39,883 [INFO] docsort.app.ui.tabs_rename_move: Auto-detected fields: doctype=Invoice number=5329 date=2025-10-22 path=C:\Users\User\Desktop\Scanned Files\asdasdasd.pdf
+2025-12-25 17:57:51,349 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move clicked
+2025-12-25 17:57:51,350 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:57:51,351 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move begin: rename_items=3 done_items=0
+2025-12-25 17:57:51,351 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:57:51,353 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:57:51,353 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview force release start
+2025-12-25 17:57:51,356 [DEBUG] docsort.app.ui.pdf_preview_widget: PDF preview navigator rebound
+2025-12-25 17:57:51,357 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document swap complete
+2025-12-25 17:57:51,361 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move paths: src=C:\Users\User\Desktop\Scanned Files\asdasdasd.pdf dst=C:\Users\User\Desktop\Sorting\Invoice\Invoice_5329.pdf
+2025-12-25 17:57:51,366 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:57:51,367 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:57:51,368 [INFO] docsort.app.ui.tabs_rename_move: Move success (async) src=C:\Users\User\Desktop\Scanned Files\asdasdasd.pdf dest=C:\Users\User\Desktop\Sorting\Invoice\Invoice_5329.pdf status=DONE
+2025-12-25 17:57:51,370 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:57:51,373 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:57:51,394 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:57:51,396 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:57:57,774 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:57:57,776 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:57:57,782 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:57:57,783 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:58:00,679 [INFO] docsort.app.ui.tabs_rename_move: Rename preview load start: C:\Users\User\Desktop\Scanned Files\adasdasd.pdf
+2025-12-25 17:58:00,679 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Loading path=C:\Users\User\Desktop\Scanned Files\adasdasd.pdf
+2025-12-25 17:58:00,686 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Ready path=C:\Users\User\Desktop\Scanned Files\adasdasd.pdf
+2025-12-25 17:58:00,687 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview ready path=C:\Users\User\Desktop\Scanned Files\adasdasd.pdf pageCount=1
+2025-12-25 17:58:00,687 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 17:58:00,687 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview load started path=C:\Users\User\Desktop\Scanned Files\adasdasd.pdf status=Error.None_
+2025-12-25 17:58:00,687 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 17:58:00,688 [INFO] docsort.app.ui.tabs_rename_move: Rename preview loaded: C:\Users\User\Desktop\Scanned Files\adasdasd.pdf
+2025-12-25 17:58:00,789 [INFO] docsort.app.services.pdf_utils: PDF text extracted path=C:\Users\User\Desktop\Scanned Files\adasdasd.pdf pages=1
+2025-12-25 17:58:00,793 [INFO] docsort.app.services.pdf_utils: Doc detect selection rule=keyword type=Estimate number=1016 date=None
+2025-12-25 17:58:00,793 [INFO] docsort.app.ui.tabs_rename_move: Auto-detected fields: doctype=Estimate number=1016 date=None path=C:\Users\User\Desktop\Scanned Files\adasdasd.pdf
+2025-12-25 17:58:10,725 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:58:10,727 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:58:10,727 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:58:10,728 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:58:12,334 [INFO] docsort.app.ui.tabs_rename_move: Rename preview load start: C:\Users\User\Desktop\Scanned Files\adasdasd.pdf
+2025-12-25 17:58:12,335 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Loading path=C:\Users\User\Desktop\Scanned Files\adasdasd.pdf
+2025-12-25 17:58:12,343 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Ready path=C:\Users\User\Desktop\Scanned Files\adasdasd.pdf
+2025-12-25 17:58:12,344 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview ready path=C:\Users\User\Desktop\Scanned Files\adasdasd.pdf pageCount=1
+2025-12-25 17:58:12,344 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 17:58:12,344 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview load started path=C:\Users\User\Desktop\Scanned Files\adasdasd.pdf status=Error.None_
+2025-12-25 17:58:12,344 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-25 17:58:12,345 [INFO] docsort.app.ui.tabs_rename_move: Rename preview loaded: C:\Users\User\Desktop\Scanned Files\adasdasd.pdf
+2025-12-25 17:58:12,416 [INFO] docsort.app.services.pdf_utils: PDF text extracted path=C:\Users\User\Desktop\Scanned Files\adasdasd.pdf pages=1
+2025-12-25 17:58:12,417 [INFO] docsort.app.services.pdf_utils: Doc detect selection rule=keyword type=Estimate number=1016 date=None
+2025-12-25 17:58:12,417 [INFO] docsort.app.ui.tabs_rename_move: Auto-detected fields: doctype=Estimate number=1016 date=None path=C:\Users\User\Desktop\Scanned Files\adasdasd.pdf
+2025-12-25 17:58:23,579 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move clicked
+2025-12-25 17:58:23,580 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:58:23,580 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move begin: rename_items=3 done_items=1
+2025-12-25 17:58:23,581 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:58:23,582 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:58:23,582 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview force release start
+2025-12-25 17:58:23,585 [DEBUG] docsort.app.ui.pdf_preview_widget: PDF preview navigator rebound
+2025-12-25 17:58:23,585 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document swap complete
+2025-12-25 17:58:23,602 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move paths: src=C:\Users\User\Desktop\Scanned Files\adasdasd.pdf dst=C:\Users\User\Desktop\Sorting\Invoice\Type_000.pdf
+2025-12-25 17:58:23,609 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-25 17:58:23,609 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-25 17:58:23,611 [INFO] docsort.app.ui.tabs_rename_move: Move success (async) src=C:\Users\User\Desktop\Scanned Files\adasdasd.pdf dest=C:\Users\User\Desktop\Sorting\Invoice\Type_000.pdf status=DONE
+2025-12-25 17:58:23,611 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:58:23,613 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:58:23,631 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-25 17:58:23,632 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-25 17:58:25,347 [INFO] docsort.app.ui.main_window: Scheduling poller stop
+2025-12-25 17:58:25,348 [INFO] docsort.app.services.source_poller: Source poller stop requested for C:\Users\User\Desktop\Scanned Files
+2025-12-26 08:11:44,559 [INFO] docsort.app.utils.logging_setup: Logging configured. File: C:\DocSort\docsort\app\storage\app.log
+2025-12-26 08:11:44,679 [DEBUG] docsort.app.storage.settings_store: get_watcher_enabled -> True
+2025-12-26 08:11:44,680 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:11:44,681 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:11:44,805 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-26 08:11:44,958 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-26 08:11:44,988 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:11:44,993 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:11:44,997 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:11:44,998 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:11:44,998 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:11:44,998 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:11:45,015 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:11:45,016 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:11:47,296 [INFO] docsort.app.ui.main_window: Scheduling poller start at C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:11:47,302 [INFO] docsort.app.services.source_poller: Source poller started for C:\Users\User\Desktop\Scanned Files
+2025-12-26 08:11:47,510 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=1 path=C:\Users\User\Desktop\Scanned Files\123123123.pdf
+2025-12-26 08:11:47,552 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=29 path=C:\Users\User\Desktop\Scanned Files\Receipt_2025-12-23_102918.pdf
+2025-12-26 08:11:47,553 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:11:47,555 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:11:47,556 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:11:47,557 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:11:47,557 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:11:47,557 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:11:47,560 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:11:47,561 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:11:51,500 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:11:51,501 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:11:51,503 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:11:51,503 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:11:51,504 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:11:51,504 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:11:51,507 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:11:51,508 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:11:55,206 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:11:55,207 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:11:55,208 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:11:55,209 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:11:55,209 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:11:55,209 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:11:55,213 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:11:55,214 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:11:58,451 [INFO] docsort.app.ui.tabs_rename_move: Rename preview load start: C:\Users\User\Desktop\Scanned Files\123123123.pdf
+2025-12-26 08:11:58,458 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Loading path=C:\Users\User\Desktop\Scanned Files\123123123.pdf
+2025-12-26 08:11:58,483 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Ready path=C:\Users\User\Desktop\Scanned Files\123123123.pdf
+2025-12-26 08:11:58,484 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview ready path=C:\Users\User\Desktop\Scanned Files\123123123.pdf pageCount=1
+2025-12-26 08:11:58,485 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-26 08:11:58,486 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview load started path=C:\Users\User\Desktop\Scanned Files\123123123.pdf status=Error.None_
+2025-12-26 08:11:58,486 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-26 08:11:58,486 [INFO] docsort.app.ui.tabs_rename_move: Rename preview loaded: C:\Users\User\Desktop\Scanned Files\123123123.pdf
+2025-12-26 08:11:58,616 [INFO] docsort.app.services.pdf_utils: PDF text extracted path=C:\Users\User\Desktop\Scanned Files\123123123.pdf pages=1
+2025-12-26 08:11:58,638 [INFO] docsort.app.services.pdf_utils: Doc detect selection rule=keyword type=Estimate number=1016 date=None
+2025-12-26 08:11:58,638 [INFO] docsort.app.ui.tabs_rename_move: Auto-detected fields: doctype=Estimate number=1016 date=None path=C:\Users\User\Desktop\Scanned Files\123123123.pdf
+2025-12-26 08:12:04,440 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move clicked
+2025-12-26 08:12:04,441 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:12:04,441 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move begin: rename_items=4 done_items=0
+2025-12-26 08:12:04,442 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:12:04,443 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:12:04,443 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview force release start
+2025-12-26 08:12:04,450 [DEBUG] docsort.app.ui.pdf_preview_widget: PDF preview navigator rebound
+2025-12-26 08:12:04,451 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document swap complete
+2025-12-26 08:12:04,471 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move paths: src=C:\Users\User\Desktop\Scanned Files\123123123.pdf dst=C:\Users\User\Desktop\Sorting\Invoice\Estimate_1016.pdf
+2025-12-26 08:12:04,478 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:12:04,478 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:12:04,479 [INFO] docsort.app.ui.tabs_rename_move: Move success (async) src=C:\Users\User\Desktop\Scanned Files\123123123.pdf dest=C:\Users\User\Desktop\Sorting\Invoice\Estimate_1016.pdf status=DONE
+2025-12-26 08:12:04,480 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:12:04,482 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:12:04,500 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:12:04,501 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:12:07,362 [INFO] docsort.app.ui.tabs_rename_move: Rename preview load start: C:\Users\User\Desktop\Scanned Files\Receipt_2025-12-23_102918.pdf
+2025-12-26 08:12:07,367 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Loading path=C:\Users\User\Desktop\Scanned Files\Receipt_2025-12-23_102918.pdf
+2025-12-26 08:12:07,459 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Ready path=C:\Users\User\Desktop\Scanned Files\Receipt_2025-12-23_102918.pdf
+2025-12-26 08:12:07,459 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview ready path=C:\Users\User\Desktop\Scanned Files\Receipt_2025-12-23_102918.pdf pageCount=29
+2025-12-26 08:12:07,460 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-26 08:12:07,460 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview load started path=C:\Users\User\Desktop\Scanned Files\Receipt_2025-12-23_102918.pdf status=Error.None_
+2025-12-26 08:12:07,460 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-26 08:12:07,461 [INFO] docsort.app.ui.tabs_rename_move: Rename preview loaded: C:\Users\User\Desktop\Scanned Files\Receipt_2025-12-23_102918.pdf
+2025-12-26 08:12:07,472 [INFO] docsort.app.services.pdf_utils: PDF text extracted path=C:\Users\User\Desktop\Scanned Files\Receipt_2025-12-23_102918.pdf pages=1
+2025-12-26 08:12:21,740 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move clicked
+2025-12-26 08:12:21,741 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:12:21,741 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move begin: rename_items=3 done_items=1
+2025-12-26 08:12:21,742 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:12:21,743 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:12:21,744 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview force release start
+2025-12-26 08:12:21,746 [DEBUG] docsort.app.ui.pdf_preview_widget: PDF preview navigator rebound
+2025-12-26 08:12:21,746 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document swap complete
+2025-12-26 08:12:21,765 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move paths: src=C:\Users\User\Desktop\Scanned Files\Receipt_2025-12-23_102918.pdf dst=C:\Users\User\Desktop\Sorting\Invoice\Type_000.pdf
+2025-12-26 08:12:21,772 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:12:21,773 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:12:21,775 [INFO] docsort.app.ui.tabs_rename_move: Move success (async) src=C:\Users\User\Desktop\Scanned Files\Receipt_2025-12-23_102918.pdf dest=C:\Users\User\Desktop\Sorting\Invoice\Type_000.pdf status=DONE
+2025-12-26 08:12:21,776 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:12:21,778 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:12:21,800 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:12:21,801 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:12:24,847 [INFO] docsort.app.ui.main_window: Scheduling poller stop
+2025-12-26 08:12:24,847 [INFO] docsort.app.services.source_poller: Source poller stop requested for C:\Users\User\Desktop\Scanned Files
+2025-12-26 08:21:31,098 [INFO] docsort.app.utils.logging_setup: Logging configured. File: C:\DocSort\docsort\app\storage\app.log
+2025-12-26 08:21:31,144 [DEBUG] docsort.app.storage.settings_store: get_watcher_enabled -> True
+2025-12-26 08:21:31,145 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:21:31,147 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:21:31,187 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-26 08:21:31,204 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview init: pageNavigator available=True
+2025-12-26 08:21:31,216 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:21:31,217 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:21:31,219 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:21:31,220 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:21:31,220 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:21:31,220 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:21:31,223 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:21:31,225 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:21:34,807 [INFO] docsort.app.ui.main_window: Scheduling poller start at C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:21:34,808 [INFO] docsort.app.services.source_poller: Source poller started for C:\Users\User\Desktop\Scanned Files
+2025-12-26 08:21:34,983 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=1 path=C:\Users\User\Desktop\Scanned Files\asdasfas.pdf
+2025-12-26 08:21:34,992 [INFO] docsort.app.services.pdf_utils: Loaded PDF page_count=29 path=C:\Users\User\Desktop\Scanned Files\dasdasea.pdf
+2025-12-26 08:21:34,993 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:21:34,995 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:21:34,996 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:21:34,996 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:21:34,997 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:21:34,997 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:21:35,000 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:21:35,001 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:21:39,361 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:21:39,363 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:21:39,364 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:21:39,365 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:21:39,365 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:21:39,365 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:21:39,368 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:21:39,369 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:21:41,528 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:21:41,530 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:21:41,531 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:21:41,531 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:21:41,532 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:21:41,532 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:21:41,535 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:21:41,536 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:21:43,926 [INFO] docsort.app.services.naming_service: Naming rule=basename vendor=Vendor type= number= date=00-00-0000 base=Vendor_asdasfas.pdf
+2025-12-26 08:21:43,926 [INFO] docsort.app.services.naming_service: Naming rule=basename vendor=Vendor type= number= date=00-00-0000 base=Vendor_asdasfas.pdf
+2025-12-26 08:21:43,927 [INFO] docsort.app.ui.tabs_rename_move: Rename preview load start: C:\Users\User\Desktop\Scanned Files\asdasfas.pdf
+2025-12-26 08:21:43,928 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Loading path=C:\Users\User\Desktop\Scanned Files\asdasfas.pdf
+2025-12-26 08:21:43,937 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Ready path=C:\Users\User\Desktop\Scanned Files\asdasfas.pdf
+2025-12-26 08:21:43,938 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview ready path=C:\Users\User\Desktop\Scanned Files\asdasfas.pdf pageCount=1
+2025-12-26 08:21:43,938 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-26 08:21:43,939 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview load started path=C:\Users\User\Desktop\Scanned Files\asdasfas.pdf status=Error.None_
+2025-12-26 08:21:43,939 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-26 08:21:43,939 [INFO] docsort.app.ui.tabs_rename_move: Rename preview loaded: C:\Users\User\Desktop\Scanned Files\asdasfas.pdf
+2025-12-26 08:21:44,019 [INFO] docsort.app.services.pdf_utils: PDF text extracted path=C:\Users\User\Desktop\Scanned Files\asdasfas.pdf pages=1
+2025-12-26 08:21:44,025 [INFO] docsort.app.services.pdf_utils: Doc detect selection rule=keyword type=Estimate number=1016 date=None
+2025-12-26 08:21:44,026 [INFO] docsort.app.ui.tabs_rename_move: Auto-detected fields: doctype=Estimate number=1016 date=None path=C:\Users\User\Desktop\Scanned Files\asdasfas.pdf
+2025-12-26 08:21:44,027 [INFO] docsort.app.services.naming_service: Naming rule=type+number+date vendor=Vendor type=Estimate number=1016 date=00-00-0000 base=Vendor_Estimate_1016_00-00-0000.pdf
+2025-12-26 08:21:49,911 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move clicked
+2025-12-26 08:21:49,912 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:21:49,913 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move begin: rename_items=4 done_items=0
+2025-12-26 08:21:49,913 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:21:49,914 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:21:49,915 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview force release start
+2025-12-26 08:21:49,915 [DEBUG] docsort.app.ui.pdf_preview_widget: PDF preview swapped to empty document
+2025-12-26 08:21:49,917 [DEBUG] docsort.app.ui.pdf_preview_widget: PDF preview navigator rebound
+2025-12-26 08:21:49,917 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document swap complete
+2025-12-26 08:21:49,922 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move paths: src=C:\Users\User\Desktop\Scanned Files\asdasfas.pdf dst=C:\Users\User\Desktop\Sorting\Invoice\Estimate_1016.pdf
+2025-12-26 08:21:49,929 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:21:49,929 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:21:49,931 [INFO] docsort.app.ui.tabs_rename_move: Move success (async) src=C:\Users\User\Desktop\Scanned Files\asdasfas.pdf dest=C:\Users\User\Desktop\Sorting\Invoice\Estimate_1016.pdf status=DONE
+2025-12-26 08:21:49,932 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:21:49,934 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:21:49,955 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:21:49,957 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:21:52,752 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:21:52,753 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:21:52,753 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:21:52,754 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:21:53,348 [INFO] docsort.app.ui.tabs_rename_move: Rename preview load start: C:\Users\User\Desktop\Scanned Files\dasdasea.pdf
+2025-12-26 08:21:53,348 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Loading path=C:\Users\User\Desktop\Scanned Files\dasdasea.pdf
+2025-12-26 08:21:53,373 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Ready path=C:\Users\User\Desktop\Scanned Files\dasdasea.pdf
+2025-12-26 08:21:53,373 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview ready path=C:\Users\User\Desktop\Scanned Files\dasdasea.pdf pageCount=29
+2025-12-26 08:21:53,374 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-26 08:21:53,374 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview load started path=C:\Users\User\Desktop\Scanned Files\dasdasea.pdf status=Error.None_
+2025-12-26 08:21:53,375 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-26 08:21:53,375 [INFO] docsort.app.ui.tabs_rename_move: Rename preview loaded: C:\Users\User\Desktop\Scanned Files\dasdasea.pdf
+2025-12-26 08:21:53,387 [INFO] docsort.app.services.pdf_utils: PDF text extracted path=C:\Users\User\Desktop\Scanned Files\dasdasea.pdf pages=1
+2025-12-26 08:21:54,576 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:21:54,577 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:21:54,578 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:21:54,578 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:21:55,296 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:21:55,297 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:21:55,297 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:21:55,298 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:21:58,431 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:21:58,432 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:21:58,432 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:21:58,433 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:22:00,023 [INFO] docsort.app.services.naming_service: Naming rule=type+number+date vendor=VendorE type=Letter number=REN-002 date=20-01-2025 base=VendorE_Letter_REN-002_20-01-2025.pdf
+2025-12-26 08:22:00,023 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:22:00,024 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:22:00,024 [INFO] docsort.app.services.naming_service: Naming rule=type+number+date vendor=VendorE type=Letter number=REN-002 date=20-01-2025 base=VendorE_Letter_REN-002_20-01-2025.pdf
+2025-12-26 08:22:00,025 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:22:00,025 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:22:01,374 [INFO] docsort.app.services.naming_service: Naming rule=basename vendor=Vendor type= number= date=00-00-0000 base=Vendor_dasdasea.pdf
+2025-12-26 08:22:01,375 [INFO] docsort.app.ui.tabs_rename_move: Rename preview load start: C:\Users\User\Desktop\Scanned Files\dasdasea.pdf
+2025-12-26 08:22:01,375 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Loading path=C:\Users\User\Desktop\Scanned Files\dasdasea.pdf
+2025-12-26 08:22:01,401 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview statusChanged: Status.Ready path=C:\Users\User\Desktop\Scanned Files\dasdasea.pdf
+2025-12-26 08:22:01,401 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview ready path=C:\Users\User\Desktop\Scanned Files\dasdasea.pdf pageCount=29
+2025-12-26 08:22:01,402 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-26 08:22:01,402 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview load started path=C:\Users\User\Desktop\Scanned Files\dasdasea.pdf status=Error.None_
+2025-12-26 08:22:01,402 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview show page index=0 via pageNavigator.jump
+2025-12-26 08:22:01,403 [INFO] docsort.app.ui.tabs_rename_move: Rename preview loaded: C:\Users\User\Desktop\Scanned Files\dasdasea.pdf
+2025-12-26 08:22:01,411 [INFO] docsort.app.services.pdf_utils: PDF text extracted path=C:\Users\User\Desktop\Scanned Files\dasdasea.pdf pages=1
+2025-12-26 08:22:16,540 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move clicked
+2025-12-26 08:22:16,542 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:22:16,542 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move begin: rename_items=3 done_items=1
+2025-12-26 08:22:16,543 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:22:16,544 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:22:16,544 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview force release start
+2025-12-26 08:22:16,544 [DEBUG] docsort.app.ui.pdf_preview_widget: PDF preview swapped to empty document
+2025-12-26 08:22:16,546 [DEBUG] docsort.app.ui.pdf_preview_widget: PDF preview navigator rebound
+2025-12-26 08:22:16,547 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document swap complete
+2025-12-26 08:22:16,560 [INFO] docsort.app.ui.tabs_rename_move: Confirm Move paths: src=C:\Users\User\Desktop\Scanned Files\dasdasea.pdf dst=C:\Users\User\Desktop\Sorting\Invoice\Type_000.pdf
+2025-12-26 08:22:16,565 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview cleared
+2025-12-26 08:22:16,565 [INFO] docsort.app.ui.pdf_preview_widget: PDF preview document released/reset
+2025-12-26 08:22:16,567 [INFO] docsort.app.ui.tabs_rename_move: Move success (async) src=C:\Users\User\Desktop\Scanned Files\dasdasea.pdf dest=C:\Users\User\Desktop\Sorting\Invoice\Type_000.pdf status=DONE
+2025-12-26 08:22:16,568 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:22:16,570 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:22:16,587 [DEBUG] docsort.app.storage.settings_store: get_source_root -> C:/Users/User/Desktop/Scanned Files
+2025-12-26 08:22:16,588 [DEBUG] docsort.app.storage.settings_store: get_destination_root -> C:/Users/User/Desktop/Sorting
+2025-12-26 08:22:21,726 [INFO] docsort.app.ui.main_window: Scheduling poller stop
+2025-12-26 08:22:21,727 [INFO] docsort.app.services.source_poller: Source poller stop requested for C:\Users\User\Desktop\Scanned Files

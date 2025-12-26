@@ -22,7 +22,9 @@ class PdfPreviewWidget(QtWidgets.QWidget):
         super().__init__(parent)
         self._pending_page: Optional[int] = None
         self._current_path: Optional[str] = None
+        self._is_swapping: bool = False
 
+        self._empty_doc = QPdfDocument(self)
         self.document = QPdfDocument(self)
         self.view = QPdfView(self)
         self.view.setDocument(self.document)
@@ -39,6 +41,8 @@ class PdfPreviewWidget(QtWidgets.QWidget):
 
         self.setMinimumHeight(240)
         logger.info("PDF preview init: pageNavigator available=%s", hasattr(self.view, "pageNavigator"))
+
+        self._page_navigator = None
 
     def load_pdf(self, path: str) -> bool:
         pdf_path = Path(path)
@@ -70,34 +74,60 @@ class PdfPreviewWidget(QtWidgets.QWidget):
         logger.info("PDF preview cleared")
         self.release_document()
 
-    def force_release_document(self) -> None:
-        logger.info("PDF preview force release")
+    def _detach_navigator(self) -> None:
         try:
-            self.view.setDocument(None)
+            if hasattr(self, "_page_navigator") and self._page_navigator:
+                # Best-effort reset; navigator API is limited
+                try:
+                    self._page_navigator = None
+                except Exception:
+                    self._page_navigator = None
         except Exception:
             pass
+
+    def force_release_document(self) -> None:
+        logger.info("PDF preview force release start")
+        if not getattr(self, "view", None):
+            logger.debug("PDF preview force release skipped: no view")
+            return
+        if self._is_swapping:
+            logger.debug("PDF preview force release skipped: already swapping")
+            return
+        self._is_swapping = True
+        old_doc = getattr(self, "document", None)
+        if old_doc is self._empty_doc:
+            old_doc = None
         try:
             self.document.statusChanged.disconnect(self._on_status_changed)  # type: ignore[attr-defined]
         except Exception:
             pass
-        try:
-            self.document.close()
-        except Exception:
-            pass
-        try:
-            self.document.deleteLater()
-        except Exception:
-            pass
+        # Swap to the persistent empty doc to drop handles without null docs
+        self.view.setDocument(self._empty_doc)
+        logger.debug("PDF preview swapped to empty document")
         QtWidgets.QApplication.processEvents()
-        self.document = QPdfDocument(self)
-        self.view.setDocument(self.document)
-        self.view.setPageMode(QPdfView.PageMode.SinglePage)
+
+        new_doc = QPdfDocument(self)
         try:
-            self.document.statusChanged.connect(self._on_status_changed)  # type: ignore[attr-defined]
+            new_doc.statusChanged.connect(self._on_status_changed)  # type: ignore[attr-defined]
         except Exception as exc:  # noqa: BLE001
             logger.warning("PDF preview: statusChanged connect failed after force release: %s", exc)
+        self.document = new_doc
+        self.view.setDocument(self.document)
+        self.view.setPageMode(QPdfView.PageMode.SinglePage)
         self._pending_page = None
         self._current_path = None
+        try:
+            self._page_navigator = self.view.pageNavigator()
+            logger.debug("PDF preview navigator rebound")
+        except Exception:
+            self._page_navigator = None
+        if old_doc:
+            try:
+                old_doc.deleteLater()
+            except Exception:
+                pass
+        logger.info("PDF preview document swap complete")
+        self._is_swapping = False
 
     @QtCore.Slot("QPdfDocument::Status")
     def _on_status_changed(self, status) -> None:

@@ -65,106 +65,112 @@ def extract_pdf_text(path: str, max_pages: int = 1) -> Tuple[str, Optional[str]]
 
 
 def detect_doc_type_and_number(text: str) -> Tuple[Optional[str], Optional[str]]:
-    patterns = [
-        (
-            r"\bTAX\s+INVOICE\b[^\d\n]{0,30}\b(?:NO\.?|NUMBER|#|:)\b[^\d\n]{0,10}(\d{2,8})\b",
-            "TAX INVOICE",
-        ),
-        (
-            r"\bINVOICE\b[^\d\n]{0,30}\b(?:NO\.?|NUMBER|#|:)\b[^\d\n]{0,10}(\d{2,8})\b",
-            "INVOICE",
-        ),
-        (
-            r"\bESTIMATE\b[^\d\n]{0,30}\b(?:NO\.?|NUMBER|#|:)?\b[^\d\n]{0,10}(\d{2,8})\b",
-            "ESTIMATE",
-        ),
-        (
-            r"\bRECEIPT\b[^\d\n]{0,30}\b(?:NO\.?|NUMBER|#|:)?\b[^\d\n]{0,10}(\d{2,8})\b",
-            "RECEIPT",
-        ),
-    ]
-    for pattern, label in patterns:
-        m = re.search(pattern, text, flags=re.IGNORECASE)
-        if m:
-            span = m.span()
-            number = m.group(1)
-            match_text = m.group(0)
-            if _has_trn_in_match(match_text):
-                logger.debug("Rejecting %s candidate due to TRN/VAT in match: %s", label, match_text)
-                continue
-            if not _accept_candidate_number(text, span, number):
-                continue
-            return label, number
-    return None, None
+    doc_type, number, _ = detect_doc_fields_from_text(text)
+    return doc_type, number
 
 
 def detect_doc_fields_from_text(text: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     doc_type = None
     number = None
     date_str: Optional[str] = None
-    date_match = re.search(r"DATE\s*[:\-]?\s*(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})", text, flags=re.IGNORECASE)
-    if date_match:
-        raw_date = date_match.group(1)
-        if "-" in raw_date:
-            date_str = raw_date
-        else:
-            # dd/mm/yyyy -> yyyy-mm-dd
-            try:
-                parts = raw_date.split("/")
-                date_str = f"{parts[2]}-{parts[1]}-{parts[0]}"
-            except Exception:
-                date_str = raw_date
-    patterns = [
-        (
-            r"\bTAX\s+INVOICE\b[^\d\n]{0,30}\b(?:NO\.?|NUMBER|#|:)\b[^\d\n]{0,10}(\d{2,8})\b",
-            "Invoice",
-        ),
-        (
-            r"\bINVOICE\b[^\d\n]{0,30}\b(?:NO\.?|NUMBER|#|:)\b[^\d\n]{0,10}(\d{2,8})\b",
-            "Invoice",
-        ),
-        (
-            r"\bESTIMATE\b[^\d\n]{0,30}\b(?:NO\.?|NUMBER|#|:)?\b[^\d\n]{0,10}(\d{2,8})\b",
-            "Estimate",
-        ),
-        (
-            r"\bRECEIPT\b[^\d\n]{0,30}\b(?:NO\.?|NUMBER|#|:)?\b[^\d\n]{0,10}(\d{2,8})\b",
-            "Receipt",
-        ),
-    ]
-    for pattern, label in patterns:
-        m = re.search(pattern, text, flags=re.IGNORECASE)
+
+    def _normalize_date(raw: str) -> Optional[str]:
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", raw):
+            return raw
+        m = re.match(r"^(\d{2})[/-](\d{2})[/-](\d{4})$", raw)
         if m:
-            span = m.span()
-            context = text[max(0, span[0] - 16) : min(len(text), span[1] + 16)]
-            if _is_trn_context(context):
-                logger.debug("Rejecting %s candidate due to TRN context: %s", label, context)
+            d, mth, y = m.groups()
+            return f"{y}-{mth}-{d}"
+        m = re.match(r"^(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{4})$", raw)
+        if m:
+            import calendar
+
+            d, mon, y = m.groups()
+            try:
+                mon_num = list(calendar.month_abbr).index(mon[:3].title())
+                return f"{y}-{mon_num:02d}-{int(d):02d}"
+            except Exception:
+                return None
+        return None
+
+    def _date_sane(val: str) -> bool:
+        if not val or "\n" in val:
+            return False
+        if len(val.strip()) < 8 or len(val.strip()) > 10:
+            return False
+        m = re.match(r"^(\d{4})-\d{2}-\d{2}$", val)
+        if not m:
+            return False
+        year = int(m.group(1))
+        if year < 2000 or year > 2100:
+            return False
+        return True
+
+    date_match = re.search(
+        r"(?:DATE\s*[:\-]?\s*)?(\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{4}|\d{2}-\d{2}-\d{4}|\d{1,2}\s+[A-Za-z]{3,}\s+\d{4})",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if date_match:
+        normalized = _normalize_date(date_match.group(1))
+        if normalized and _date_sane(normalized):
+            date_str = normalized
+
+    candidates = []
+    keyword_patterns = [
+        (r"\bTAX\s+INVOICE\b[^\n\d]{0,30}\b(?:NO\.?|NUMBER|#|:)\b[^\n\d]{0,10}([A-Za-z0-9\-]{2,12})", "Invoice", "keyword"),
+        (r"\bINVOICE\b[^\n\d]{0,30}\b(?:NO\.?|NUMBER|#|:)\b[^\n\d]{0,10}([A-Za-z0-9\-]{2,12})", "Invoice", "keyword"),
+        (r"\bINV\s*NO\b[^\n\d]{0,10}([A-Za-z0-9\-]{2,12})", "Invoice", "keyword"),
+        (r"\bESTIMATE\b[^\n\d]{0,30}\b(?:NO\.?|NUMBER|#|:)?\b[^\n\d]{0,10}([A-Za-z0-9\-]{2,12})", "Estimate", "keyword"),
+        (r"\bRECEIPT\b[^\n\d]{0,30}\b(?:NO\.?|NUMBER|#|:)?\b[^\n\d]{0,10}([A-Za-z0-9\-]{2,12})", "Receipt", "keyword"),
+    ]
+
+    def _valid_candidate(num: str) -> bool:
+        if _is_trn_context(num):
+            return False
+        if re.match(r"\+?\d{10,15}$", num):
+            return False
+        if re.match(r"\d{4}-\d{2}-\d{2}$", num):
+            return False
+        digits_only = re.sub(r"\D", "", num)
+        if len(digits_only) < 2 or len(digits_only) > 8:
+            return False
+        return True
+
+    for pattern, label, rule in keyword_patterns:
+        for m in re.finditer(pattern, text, flags=re.IGNORECASE):
+            num = m.group(1)
+            if not _valid_candidate(num):
+                logger.debug("Rejecting %s candidate (rule=%s) invalid number: %s", label, rule, num)
                 continue
-            candidate = m.group(1)
-            if len(candidate) > 8:
-                logger.debug("Rejecting %s candidate too long: %s", label, candidate)
+            span = m.span(1)
+            if not _accept_candidate_number(text, span, num):
                 continue
-            if _has_trn_in_match(m.group(0)):
-                logger.debug("Rejecting %s candidate due to TRN in match: %s", label, m.group(0))
+            candidates.append((label, num, rule, span[0]))
+
+    if not candidates:
+        # fallback search in top 40% of text
+        cutoff = int(len(text) * 0.4)
+        head = text[:cutoff] if cutoff > 0 else text
+        for m in re.finditer(r"\b([A-Za-z]?\d{4,8}[A-Za-z]?)\b", head):
+            num = m.group(1)
+            if not _valid_candidate(num):
                 continue
-            doc_type = label
-            number = candidate
-            break
-    if doc_type and not number:
-        close_num = re.search(rf"{doc_type}\s*(?:NO\.?|#|NUMBER)?\s*(\d{{2,}})", text, flags=re.IGNORECASE)
-        if close_num:
-            span = close_num.span()
-            context = text[max(0, span[0] - 16) : min(len(text), span[1] + 16)]
-            candidate = close_num.group(1)
-            if not _is_trn_context(context) and len(candidate) <= 8:
-                number = candidate
-            else:
-                logger.debug("Rejecting nearby number due to context/length: %s", context)
+            candidates.append((None, num, "fallback", m.start()))
+
+    if candidates:
+        candidates.sort(key=lambda x: (0 if x[2] == "keyword" else 1, x[3]))
+        chosen = candidates[0]
+        doc_type = chosen[0] or doc_type
+        number = chosen[1]
+        logger.info("Doc detect selection rule=%s type=%s number=%s date=%s", chosen[2], doc_type, number, date_str)
+
     if not doc_type:
         for label in ["Invoice", "Estimate", "Receipt"]:
             if re.search(label, text, flags=re.IGNORECASE):
                 doc_type = label
                 break
+
     return doc_type, number, date_str
 
 
@@ -178,23 +184,33 @@ def detect_doc_fields_from_pdf(path: str) -> Tuple[Optional[str], Optional[str],
 
 def build_suggested_filename(path: str, fallback_stem: str) -> str:
     pdf_path = Path(path)
-    fallback = fallback_stem or pdf_path.stem or "document"
     doc_type, doc_number, date_str, err = detect_doc_fields_from_pdf(str(pdf_path))
+    rule = "basename"
+    base_name = pdf_path.stem or "document"
+
+    def _sanitize(name: str) -> str:
+        name = name.replace(" ", "_")
+        name = re.sub(r'[\\/:*?"<>|]', "", name)
+        name = re.sub(r"_+", "_", name)
+        return name.strip("_")
+
     if doc_type and doc_number:
-        safe_type = re.sub(r"\s+", "_", doc_type.title()).strip("_")
-        filename = f"{safe_type}_{doc_number}.pdf"
-        logger.info("PDF suggestion matched %s: %s %s", pdf_path, doc_type, doc_number)
-        return filename
-    if doc_type and doc_type.lower() in {"invoice", "estimate"} and date_str:
-        safe_type = doc_type.title()
-        filename = f"{safe_type}_{date_str}.pdf"
-        logger.info("PDF suggestion using date fallback %s: %s %s", pdf_path, doc_type, date_str)
-        return filename
-    if err:
-        logger.warning("PDF suggestion fallback for %s due to: %s", pdf_path, err)
-    if not fallback.lower().endswith(".pdf"):
-        fallback = f"{fallback}.pdf"
-    return fallback
+        rule = "type+number+date" if date_str else "type+number"
+        parts = [doc_type, doc_number]
+        if date_str:
+            parts.append(date_str)
+        base_name = "_".join(parts)
+    elif doc_type and date_str:
+        rule = "type+date"
+        base_name = f"{doc_type}_{date_str}"
+    elif doc_number:
+        rule = "number"
+        base_name = str(doc_number)
+
+    base_name = _sanitize(base_name)
+    filename = f"{base_name}.pdf"
+    logger.info("PDF suggestion rule=%s type=%s number=%s date=%s result=%s", rule, doc_type, doc_number, date_str, filename)
+    return filename
 
 
 def _self_test() -> None:
