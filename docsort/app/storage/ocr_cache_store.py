@@ -104,6 +104,15 @@ def get_cached_text(path: str, max_pages: int, fingerprint: Optional[str] = None
     return ""
 
 
+def is_cached(path: str, max_pages: int, fingerprint: Optional[str] = None) -> bool:
+    try:
+        text = get_cached_text(path, max_pages=max_pages, fingerprint=fingerprint)
+        return bool(text)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Failed cache check for %s: %s", path, exc)
+        return False
+
+
 def upsert_cached_text(path: str, max_pages: int, text: str, fingerprint: Optional[str] = None) -> None:
     effective_fingerprint = fingerprint or compute_fingerprint(Path(path))
     if not effective_fingerprint:

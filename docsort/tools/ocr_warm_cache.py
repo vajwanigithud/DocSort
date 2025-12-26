@@ -49,15 +49,15 @@ def main() -> None:
     total_ocr_seconds = 0.0
     for idx, pdf_path in enumerate(pdfs, start=1):
         fingerprint = ocr_cache_store.compute_fingerprint(pdf_path)
-        cached = ""
+        is_cached = False
         if fingerprint:
             try:
-                cached = ocr_cache_store.get_cached_text(str(pdf_path), max_pages=pages, fingerprint=fingerprint)
+                is_cached = ocr_cache_store.is_cached(str(pdf_path), max_pages=pages, fingerprint=fingerprint)
             except Exception as exc:  # noqa: BLE001
                 logger.debug("Cache lookup failed for %s: %s", pdf_path, exc)
         else:
             logger.debug("No fingerprint for %s; proceeding without cache lookup", pdf_path)
-        if cached:
+        if is_cached:
             skipped += 1
             logger.info("[%s/%s] SKIP already cached: %s", idx, total, pdf_path.name)
             continue
