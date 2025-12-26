@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, List, Tuple
 
 from docsort.app.services import naming_service, pdf_utils
+from docsort.app.storage import ocr_cache_store
 
 try:
     from PIL import Image, ImageFilter, ImageOps, ImageStat
@@ -306,6 +307,27 @@ def get_text_for_pdf(path: str, max_pages: int = 1) -> str:
         cached_val = _text_cache[key]
         _text_cache.move_to_end(key)
         return cached_val
+    fingerprint = ocr_cache_store.compute_fingerprint(pdf_path)
+    if fingerprint:
+        try:
+            persistent_text = ocr_cache_store.get_cached_text(
+                str(pdf_path), max_pages=effective_max_pages, fingerprint=fingerprint
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("OCR sqlite cache read failed path=%s err=%s", pdf_path, exc)
+            persistent_text = ""
+        if persistent_text:
+            _text_cache[key] = persistent_text
+            _text_cache.move_to_end(key)
+            if len(_text_cache) > _TEXT_CACHE_MAX_ENTRIES:
+                _text_cache.popitem(last=False)
+            logger.info(
+                "OCR sqlite cache hit path=%s max_pages=%s chars=%s",
+                pdf_path,
+                effective_max_pages,
+                len(persistent_text),
+            )
+            return persistent_text
     logger.info("OCR text request start path=%s max_pages=%s", pdf_path, max_pages)
     text = _try_pypdf_text(pdf_path, max_pages=effective_max_pages)
     if len(text) < 200 or len(text.split()) < 15:
@@ -316,6 +338,13 @@ def get_text_for_pdf(path: str, max_pages: int = 1) -> str:
     _text_cache.move_to_end(key)
     if len(_text_cache) > _TEXT_CACHE_MAX_ENTRIES:
         _text_cache.popitem(last=False)
+    if fingerprint:
+        try:
+            ocr_cache_store.upsert_cached_text(
+                str(pdf_path), max_pages=effective_max_pages, text=text or "", fingerprint=fingerprint
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("OCR sqlite cache write failed path=%s err=%s", pdf_path, exc)
     logger.info("OCR text request finished path=%s chars=%s", pdf_path, len(text or ""))
     return text or ""
 
@@ -427,4 +456,9 @@ def fingerprint_text(text: str) -> str:
     snippet = (text or "")[:300].encode("utf-8", errors="ignore")
     return hashlib.sha1(snippet).hexdigest()
 
-# Self-check: python -c "import pytesseract; pytesseract.pytesseract.tesseract_cmd=r'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'; from docsort.app.services.ocr_suggestion_service import get_text_for_pdf; print(get_text_for_pdf(r'<PDF>', max_pages=2)[:800])"
+# Self-check (manual): python - <<'PY'
+# from docsort.app.services.ocr_suggestion_service import get_text_for_pdf
+# path = r"<PDF>"
+# print(len(get_text_for_pdf(path, max_pages=1)))
+# print(len(get_text_for_pdf(path, max_pages=1)))  # second run should hit sqlite cache
+# PY
