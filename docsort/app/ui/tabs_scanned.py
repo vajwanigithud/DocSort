@@ -6,7 +6,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from docsort.app.core.state import AppState, DocumentItem
 from docsort.app.services import pdf_utils, routing_service
-from docsort.app.storage import settings_store
+from docsort.app.storage import settings_store, split_completion_store
 from docsort.app.ui.pdf_preview_widget import PdfPreviewWidget
 
 
@@ -39,6 +39,13 @@ class ScannedTab(QtWidgets.QWidget):
         main_layout.addLayout(header)
 
         layout = QtWidgets.QHBoxLayout()
+        header_controls = QtWidgets.QHBoxLayout()
+        self.show_completed = QtWidgets.QCheckBox("Show completed")
+        self.show_completed.setChecked(False)
+        header_controls.addWidget(self.show_completed)
+        header_controls.addStretch()
+        main_layout.addLayout(header_controls)
+
         self.list_widget = QtWidgets.QListWidget()
         layout.addWidget(self.list_widget, 1)
 
@@ -57,22 +64,7 @@ class ScannedTab(QtWidgets.QWidget):
         self.to_rename_btn = QtWidgets.QPushButton("Send to Rename & Move")
         actions.addWidget(self.to_splitter_btn)
         actions.addWidget(self.to_rename_btn)
-
-        routing_group = QtWidgets.QGroupBox("Routing")
-        routing_layout = QtWidgets.QVBoxLayout(routing_group)
-        self.route_auto = QtWidgets.QRadioButton("Auto")
-        self.route_split = QtWidgets.QRadioButton("Send to Splitter")
-        self.route_rename = QtWidgets.QRadioButton("Send to Rename & Move")
-        self.route_auto.setChecked(True)
-        self.route_group = QtWidgets.QButtonGroup(self)
-        for rb in [self.route_auto, self.route_split, self.route_rename]:
-            self.route_group.addButton(rb)
-            routing_layout.addWidget(rb)
-        actions.addWidget(routing_group)
-
-        self.route_now_btn = QtWidgets.QPushButton("Route Now")
         self.auto_route_all_btn = QtWidgets.QPushButton("Auto-route all")
-        actions.addWidget(self.route_now_btn)
         actions.addWidget(self.auto_route_all_btn)
 
         rule_label = QtWidgets.QLabel("Images default to Rename & Move. PDFs default to Auto.")
@@ -86,11 +78,11 @@ class ScannedTab(QtWidgets.QWidget):
         self.list_widget.itemSelectionChanged.connect(self._update_preview)
         self.to_splitter_btn.clicked.connect(self._send_to_splitter)
         self.to_rename_btn.clicked.connect(self._send_to_rename)
-        self.route_now_btn.clicked.connect(self._route_selected)
         self.auto_route_all_btn.clicked.connect(self._auto_route_all)
         self.refresh_btn.clicked.connect(self._refresh_from_source)
         self.start_monitor_btn.clicked.connect(self.start_monitor_cb)
         self.stop_monitor_btn.clicked.connect(self.stop_monitor_cb)
+        self.show_completed.toggled.connect(self.refresh)
         main_layout.addLayout(layout)
 
     def _selected_item(self) -> DocumentItem | None:
@@ -111,20 +103,6 @@ class ScannedTab(QtWidgets.QWidget):
             self.state.move_between_named_lists("scanned_items", "rename_items", selected.id)
             self.refresh_all()
 
-    def _route_selected(self) -> None:
-        selected = self._selected_item()
-        if not selected:
-            return
-        selected.route_hint = (
-            "SPLIT" if self.route_split.isChecked() else "RENAME" if self.route_rename.isChecked() else "AUTO"
-        )
-        target = routing_service.route_item(selected)
-        if target == "splitter":
-            self.state.move_between_named_lists("scanned_items", "splitter_items", selected.id)
-        else:
-            self.state.move_between_named_lists("scanned_items", "rename_items", selected.id)
-        self.refresh_all()
-
     def _auto_route_all(self) -> None:
         routes = routing_service.route_items(self.state.scanned_items)
         for item, target in routes:
@@ -139,7 +117,12 @@ class ScannedTab(QtWidgets.QWidget):
         self.source_label.setText(source_root or "Not set")
         self.warning_label.setVisible(not bool(source_root))
         self.list_widget.clear()
+        show_completed = self.show_completed.isChecked()
         for doc in self.state.scanned_items:
+            path = Path(doc.source_path)
+            split_completion_store.prune_if_changed(path)
+            if not show_completed and split_completion_store.is_split_complete(path):
+                continue
             item = QtWidgets.QListWidgetItem(f"{doc.display_name} ({doc.page_count}p)")
             item.setData(QtCore.Qt.UserRole, doc)
             self.list_widget.addItem(item)
@@ -159,8 +142,12 @@ class ScannedTab(QtWidgets.QWidget):
         existing_paths = {Path(doc.source_path).resolve() for doc in self.state.scanned_items}
         allowed_ext = {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff"}
         new_items = []
+        show_completed = self.show_completed.isChecked()
         for path in root_path.iterdir():
             if path.suffix.lower() not in allowed_ext or not path.is_file():
+                continue
+            split_completion_store.prune_if_changed(path)
+            if (not show_completed) and split_completion_store.is_split_complete(path):
                 continue
             abs_path = path.resolve()
             if abs_path in existing_paths:

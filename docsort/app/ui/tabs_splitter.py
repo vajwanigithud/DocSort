@@ -1,12 +1,14 @@
 import logging
 import uuid
+from datetime import datetime
 from pathlib import Path
+import time
 
 from PySide6 import QtCore, QtWidgets
 
 from docsort.app.core.state import AppState, DocumentItem
 from docsort.app.services import pdf_split_service, split_plan_service
-from docsort.app.storage import settings_store
+from docsort.app.storage import settings_store, split_completion_store
 from docsort.app.ui.pdf_preview_widget import PdfPreviewWidget
 
 logger = logging.getLogger(__name__)
@@ -27,8 +29,14 @@ class SplitterTab(QtWidgets.QWidget):
         layout = QtWidgets.QHBoxLayout(self)
 
         # LEFT: list of splitter candidate PDFs
+        left_col = QtWidgets.QVBoxLayout()
+        self.show_completed = QtWidgets.QCheckBox("Show completed")
+        self.show_completed.setChecked(False)
+        left_col.addWidget(self.show_completed)
         self.list_widget = QtWidgets.QListWidget()
-        layout.addWidget(self.list_widget, 1)
+        left_col.addWidget(self.list_widget, 1)
+        layout.addLayout(left_col, 1)
+        self.list_widget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
 
         # MIDDLE: big preview + page list
         mid_layout = QtWidgets.QVBoxLayout()
@@ -143,13 +151,23 @@ class SplitterTab(QtWidgets.QWidget):
         self.cut_all_btn.clicked.connect(self._cut_all_singletons)
         self.list_widget.itemSelectionChanged.connect(self._update_preview)
         self.thumb_list.itemSelectionChanged.connect(self._on_page_selected)
+        self.show_completed.toggled.connect(self.refresh)
+        self.list_widget.customContextMenuRequested.connect(self._open_list_context_menu)
 
         self._clear_plan()
 
     def refresh(self) -> None:
         self.list_widget.clear()
+        show_completed = self.show_completed.isChecked()
         for doc in self.state.splitter_items:
-            item = QtWidgets.QListWidgetItem(f"{doc.display_name} ({doc.page_count}p)")
+            split_completion_store.prune_if_changed(Path(doc.source_path))
+            is_done = split_completion_store.is_split_complete(Path(doc.source_path))
+            if not show_completed and is_done:
+                continue
+            label = f"{doc.display_name} ({doc.page_count}p)"
+            if show_completed and is_done:
+                label = f"{label} ✅"
+            item = QtWidgets.QListWidgetItem(label)
             item.setData(QtCore.Qt.UserRole, doc)
             self.list_widget.addItem(item)
 
@@ -259,6 +277,16 @@ class SplitterTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "Split Plan", error)
             return
 
+        source_root = settings_store.get_source_root()
+        if not source_root:
+            QtWidgets.QMessageBox.warning(self, "Split Plan", "Set Source folder in Settings first.")
+            return
+        source_root_path = Path(source_root)
+        try:
+            source_root_path.mkdir(parents=True, exist_ok=True)
+        except Exception as exc:  # noqa: BLE001
+            QtWidgets.QMessageBox.warning(self, "Split Plan", f"Cannot access source folder: {exc}")
+            return
         covered = sum((end - start + 1) for start, end in groups)
         if covered < total:
             resp = QtWidgets.QMessageBox.question(
@@ -276,12 +304,54 @@ class SplitterTab(QtWidgets.QWidget):
 
         src = Path(doc.source_path)
         if src.exists() and src.suffix.lower() == ".pdf":
-            dest_root = settings_store.get_destination_root()
-            out_dir = Path(dest_root) / "_split_output" if dest_root else (Path(__file__).resolve().parents[3] / "_split_output")
+            out_dir = source_root_path
             try:
-                created_paths = pdf_split_service.split_pdf_to_ranges(str(src), str(out_dir), groups)
+                def _do_split() -> list[str]:
+                    return pdf_split_service.split_pdf_to_ranges(str(src), str(out_dir), groups)
+
+                try:
+                    created_paths = _do_split()
+                except Exception as first_exc:  # noqa: BLE001
+                    msg = str(first_exc)
+                    if "WinError 32" in msg or "being used by another process" in msg:
+                        time.sleep(0.15)
+                        created_paths = _do_split()
+                    else:
+                        raise
                 use_pdf_split = True
-                doc.notes = f"{doc.notes} split_output_dir={out_dir}".strip()
+                run_ts = datetime.now().strftime("%Y%m%d%H%M%S")
+                renamed_paths: list[str] = []
+                for created in created_paths or []:
+                    created_path = Path(created)
+                    if not created_path.exists():
+                        renamed_paths.append(str(created_path))
+                        continue
+                    if created_path.suffix.lower() != ".pdf":
+                        renamed_paths.append(str(created_path))
+                        continue
+                    base_stem = created_path.stem
+                    idx = base_stem.find("_p")
+                    stem_prefix = base_stem if idx == -1 else base_stem[:idx]
+                    stem_suffix = "" if idx == -1 else base_stem[idx:]
+                    run_id = f"{run_ts}_{uuid.uuid4().hex[:8]}"
+                    rename_attempts = 0
+                    while rename_attempts < 3:
+                        rename_attempts += 1
+                        new_name = f"{stem_prefix}_{run_id}{stem_suffix}{created_path.suffix}"
+                        candidate = created_path.with_name(new_name)
+                        if candidate.exists():
+                            run_id = f"{run_ts}_{uuid.uuid4().hex[:8]}"
+                            continue
+                        try:
+                            created_path = created_path.rename(candidate)
+                            break
+                        except Exception as exc:  # noqa: BLE001
+                            logger.warning("Failed to rename split output to %s: %s", candidate, exc)
+                            run_id = f"{run_ts}_{uuid.uuid4().hex[:8]}"
+                    renamed_paths.append(str(created_path))
+                    if created_path.exists():
+                        self.state.enqueue_scanned_path(str(created_path))
+                created_paths = renamed_paths
             except Exception as exc:  # noqa: BLE001
                 QtWidgets.QMessageBox.warning(
                     self,
@@ -327,7 +397,34 @@ class SplitterTab(QtWidgets.QWidget):
                 moved.notes = f"{moved.notes} split plan applied".strip()
         else:
             doc.notes = f"{doc.notes} split plan applied".strip()
+        split_completion_store.mark_split_complete(src)
+        self.refresh_all()
 
+    def _open_list_context_menu(self, pos: QtCore.QPoint) -> None:
+        item = self.list_widget.itemAt(pos)
+        if not item:
+            return
+        doc = item.data(QtCore.Qt.UserRole)
+        if not doc:
+            return
+        path = Path(doc.source_path)
+        split_completion_store.prune_if_changed(path)
+        is_done = split_completion_store.is_split_complete(path)
+        menu = QtWidgets.QMenu(self)
+        if is_done:
+            action = menu.addAction("Mark as not completed")
+            action.triggered.connect(lambda: self._unmark_and_refresh(path))
+        else:
+            action = menu.addAction("Mark as completed")
+            action.triggered.connect(lambda: self._mark_and_refresh(path))
+        menu.exec(self.list_widget.mapToGlobal(pos))
+
+    def _mark_and_refresh(self, path: Path) -> None:
+        split_completion_store.mark_split_complete(path)
+        self.refresh_all()
+
+    def _unmark_and_refresh(self, path: Path) -> None:
+        split_completion_store.unmark_split_complete(path)
         self.refresh_all()
 
     # -----------------------------
