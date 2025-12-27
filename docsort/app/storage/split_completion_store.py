@@ -71,6 +71,22 @@ def mark_split_complete(path: Path) -> None:
     _save(data)
 
 
+def unmark_split_complete(path: Path) -> None:
+    key, _ = _key_for_path(path)
+    data = _load()
+    if key in data:
+        data.pop(key, None)
+        _save(data)
+
+
+def toggle_split_complete(path: Path) -> bool:
+    if is_split_complete(path):
+        unmark_split_complete(path)
+        return False
+    mark_split_complete(path)
+    return True
+
+
 def prune_if_changed(path: Path) -> None:
     fp = _fingerprint(path)
     key, _ = _key_for_path(path)

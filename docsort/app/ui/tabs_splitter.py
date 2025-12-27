@@ -36,6 +36,7 @@ class SplitterTab(QtWidgets.QWidget):
         self.list_widget = QtWidgets.QListWidget()
         left_col.addWidget(self.list_widget, 1)
         layout.addLayout(left_col, 1)
+        self.list_widget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
 
         # MIDDLE: big preview + page list
         mid_layout = QtWidgets.QVBoxLayout()
@@ -151,6 +152,7 @@ class SplitterTab(QtWidgets.QWidget):
         self.list_widget.itemSelectionChanged.connect(self._update_preview)
         self.thumb_list.itemSelectionChanged.connect(self._on_page_selected)
         self.show_completed.toggled.connect(self.refresh)
+        self.list_widget.customContextMenuRequested.connect(self._open_list_context_menu)
 
         self._clear_plan()
 
@@ -159,9 +161,13 @@ class SplitterTab(QtWidgets.QWidget):
         show_completed = self.show_completed.isChecked()
         for doc in self.state.splitter_items:
             split_completion_store.prune_if_changed(Path(doc.source_path))
-            if not show_completed and split_completion_store.is_split_complete(Path(doc.source_path)):
+            is_done = split_completion_store.is_split_complete(Path(doc.source_path))
+            if not show_completed and is_done:
                 continue
-            item = QtWidgets.QListWidgetItem(f"{doc.display_name} ({doc.page_count}p)")
+            label = f"{doc.display_name} ({doc.page_count}p)"
+            if show_completed and is_done:
+                label = f"{label} ✅"
+            item = QtWidgets.QListWidgetItem(label)
             item.setData(QtCore.Qt.UserRole, doc)
             self.list_widget.addItem(item)
 
@@ -392,6 +398,33 @@ class SplitterTab(QtWidgets.QWidget):
         else:
             doc.notes = f"{doc.notes} split plan applied".strip()
         split_completion_store.mark_split_complete(src)
+        self.refresh_all()
+
+    def _open_list_context_menu(self, pos: QtCore.QPoint) -> None:
+        item = self.list_widget.itemAt(pos)
+        if not item:
+            return
+        doc = item.data(QtCore.Qt.UserRole)
+        if not doc:
+            return
+        path = Path(doc.source_path)
+        split_completion_store.prune_if_changed(path)
+        is_done = split_completion_store.is_split_complete(path)
+        menu = QtWidgets.QMenu(self)
+        if is_done:
+            action = menu.addAction("Mark as not completed")
+            action.triggered.connect(lambda: self._unmark_and_refresh(path))
+        else:
+            action = menu.addAction("Mark as completed")
+            action.triggered.connect(lambda: self._mark_and_refresh(path))
+        menu.exec(self.list_widget.mapToGlobal(pos))
+
+    def _mark_and_refresh(self, path: Path) -> None:
+        split_completion_store.mark_split_complete(path)
+        self.refresh_all()
+
+    def _unmark_and_refresh(self, path: Path) -> None:
+        split_completion_store.unmark_split_complete(path)
         self.refresh_all()
 
     # -----------------------------
