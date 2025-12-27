@@ -9,7 +9,7 @@ from docsort.app.storage import settings_store
 
 logger = logging.getLogger(__name__)
 
-STORAGE_PATH = Path(settings_store.get_storage_dir()) / "split_completion.json"
+STORAGE_PATH = Path(__file__).resolve().parent / "split_completion.json"
 
 
 def _ensure_file() -> None:
