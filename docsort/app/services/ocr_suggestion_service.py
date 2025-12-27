@@ -8,7 +8,7 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any, List, Tuple
 
-from docsort.app.services import naming_service, pdf_utils
+from docsort.app.services import naming_service, pdf_utils, ocr_input_cache
 from docsort.app.storage import ocr_cache_store
 
 try:
@@ -235,11 +235,6 @@ def _try_ocr(path: Path, max_pages: int) -> str:
             logger.debug("OCR page render failed p=%s scale=%s for %s: %s", page_idx, scale, path, exc)
             return "", ""
 
-    try:
-        doc = fitz.open(path)
-    except Exception as exc:  # noqa: BLE001
-        logger.debug("OCR open failed for %s: %s", path, exc)
-        return ""
     texts: List[str] = []
 
     def _is_weak_text(val: str) -> bool:
@@ -280,14 +275,16 @@ def _try_ocr(path: Path, max_pages: int) -> str:
                 break
         return best_text
 
-    max_pages_to_use = min(max_pages, doc.page_count, OCR_MAX_PAGES)
     try:
-        for page_idx in range(max_pages_to_use):
-            text = _ocr_page_with_retries(doc, page_idx)
-            if text:
-                texts.append(text)
-    finally:
-        doc.close()
+        with fitz.open(path) as doc:
+            max_pages_to_use = min(max_pages, doc.page_count, OCR_MAX_PAGES)
+            for page_idx in range(max_pages_to_use):
+                text = _ocr_page_with_retries(doc, page_idx)
+                if text:
+                    texts.append(text)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("OCR open failed for %s: %s", path, exc)
+        return ""
     elapsed = time.time() - start
     combined = "\n".join(texts)
     if combined:
@@ -301,6 +298,11 @@ def get_text_for_pdf(path: str, max_pages: int = 1) -> str:
     pdf_path = Path(path)
     if not pdf_path.exists():
         return ""
+    cached_path = ocr_input_cache.cache_pdf_for_ocr(pdf_path)
+    if not cached_path:
+        logger.warning("OCR cache copy unavailable for %s", pdf_path)
+        return ""
+    logger.info("OCR using cached copy: src=%s cached=%s", pdf_path, cached_path)
     effective_max_pages = max_pages
     key = _cache_key(pdf_path, effective_max_pages)
     if key in _text_cache:
@@ -329,9 +331,9 @@ def get_text_for_pdf(path: str, max_pages: int = 1) -> str:
             )
             return persistent_text
     logger.info("OCR text request start path=%s max_pages=%s", pdf_path, max_pages)
-    text = _try_pypdf_text(pdf_path, max_pages=effective_max_pages)
+    text = _try_pypdf_text(cached_path, max_pages=effective_max_pages)
     if len(text) < 200 or len(text.split()) < 15:
-        ocr_text = _try_ocr(pdf_path, max_pages=effective_max_pages)
+        ocr_text = _try_ocr(cached_path, max_pages=effective_max_pages)
         if ocr_text:
             text = ocr_text
     _text_cache[key] = text or ""

@@ -121,9 +121,13 @@ class ScannedTab(QtWidgets.QWidget):
         for doc in self.state.scanned_items:
             path = Path(doc.source_path)
             split_completion_store.prune_if_changed(path)
-            if not show_completed and split_completion_store.is_split_complete(path):
+            is_done = split_completion_store.is_split_complete(path)
+            if not show_completed and is_done:
                 continue
-            item = QtWidgets.QListWidgetItem(f"{doc.display_name} ({doc.page_count}p)")
+            label = f"{doc.display_name} ({doc.page_count}p)"
+            if is_done:
+                label = f"{label} ✅"
+            item = QtWidgets.QListWidgetItem(label)
             item.setData(QtCore.Qt.UserRole, doc)
             self.list_widget.addItem(item)
         if self.list_widget.count() and self.list_widget.currentRow() < 0:
