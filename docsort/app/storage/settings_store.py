@@ -4,12 +4,29 @@ from pathlib import Path
 from typing import Optional
 
 SETTINGS_PATH = Path(__file__).parent / "settings.json"
+DEFAULT_STORAGE_DIR = Path.home() / ".docsort"
 
 
 def _ensure_storage_file() -> None:
     SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
     if not SETTINGS_PATH.exists():
         SETTINGS_PATH.write_text(json.dumps({}), encoding="utf-8")
+
+
+def get_storage_dir() -> Path:
+    _ensure_storage_file()
+    try:
+        data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        data = {}
+    storage_dir_raw = data.get("storage_dir")
+    try:
+        storage_dir = Path(storage_dir_raw).expanduser() if storage_dir_raw else DEFAULT_STORAGE_DIR
+    except Exception:
+        storage_dir = DEFAULT_STORAGE_DIR
+    storage_dir.mkdir(parents=True, exist_ok=True)
+    logging.getLogger(__name__).debug("get_storage_dir -> %s", storage_dir)
+    return storage_dir
 
 
 def get_destination_root() -> Optional[str]:
