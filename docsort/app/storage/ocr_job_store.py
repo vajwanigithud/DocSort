@@ -1,7 +1,7 @@
 import logging
 import sqlite3
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -238,3 +238,43 @@ def clear_job(path: str, max_pages: int, fingerprint: Optional[str] = None) -> N
             conn.commit()
     except Exception as exc:  # noqa: BLE001
         logger.debug("Failed to clear OCR job for %s: %s", path, exc)
+
+
+def mark_stalled_jobs(
+    running_stale_seconds: int = 300,
+    queued_stale_seconds: int = 1800,
+) -> int:
+    try:
+        now = datetime.utcnow()
+        running_cutoff = (now - timedelta(seconds=int(running_stale_seconds))).isoformat(timespec="seconds")
+        queued_cutoff = (now - timedelta(seconds=int(queued_stale_seconds))).isoformat(timespec="seconds")
+        updated_at = now.isoformat(timespec="seconds")
+        total_updated = 0
+        with _connect() as conn:
+            cur1 = conn.execute(
+                """
+                UPDATE ocr_jobs
+                SET status = 'FAILED',
+                    last_error = ?,
+                    updated_at = ?
+                WHERE status = 'RUNNING' AND updated_at < ?
+                """,
+                (f"Stalled: RUNNING > {int(running_stale_seconds)}s (timeout)", updated_at, running_cutoff),
+            )
+            total_updated += cur1.rowcount if cur1 else 0
+            cur2 = conn.execute(
+                """
+                UPDATE ocr_jobs
+                SET status = 'FAILED',
+                    last_error = ?,
+                    updated_at = ?
+                WHERE status = 'QUEUED' AND updated_at < ?
+                """,
+                (f"Stalled: QUEUED > {int(queued_stale_seconds)}s (not picked up)", updated_at, queued_cutoff),
+            )
+            total_updated += cur2.rowcount if cur2 else 0
+            conn.commit()
+        return total_updated
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Failed to mark stalled OCR jobs: %s", exc)
+        return 0
