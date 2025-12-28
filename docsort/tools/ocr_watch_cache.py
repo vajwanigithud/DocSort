@@ -3,6 +3,10 @@ Background OCR cache watcher.
 
 Purpose: pre-warm the SQLite OCR cache so the UI can surface suggestions instantly.
 Optional dependency: install `watchdog` for real-time file events; otherwise we fall back to polling.
+
+Manual test (stall):
+- Run: python -m docsort.tools.ocr_watch_cache <folder> --pages 1
+- Manually insert or backdate an OCR job row to RUNNING with old updated_at; wait for ~30s; expect log "Marked N stalled OCR job(s) as FAILED".
 """
 import argparse
 import logging
@@ -21,6 +25,8 @@ THROTTLE_SECONDS = 1.0
 PROCESS_LOCK = threading.Lock()
 TEMP_SUFFIXES = {".tmp", ".temp", ".part"}
 WORKER_ID = "ocr_watch_cache"
+STALL_SWEEP_INTERVAL_SECONDS = 30
+_stall_last_sweep = 0.0
 
 
 def _setup_logging() -> None:
@@ -39,6 +45,20 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--pages", type=int, default=1, help="Max pages to OCR per PDF (default: 1).")
     parser.add_argument("--poll-seconds", type=float, default=10.0, help="Polling interval when watchdog is unavailable.")
     return parser.parse_args()
+
+
+def _maybe_mark_stalled() -> None:
+    global _stall_last_sweep
+    now = time.time()
+    if now - _stall_last_sweep < STALL_SWEEP_INTERVAL_SECONDS:
+        return
+    try:
+        updated = ocr_job_store.mark_stalled_jobs()
+        if updated:
+            logger.info("Marked %s stalled OCR job(s) as FAILED", updated)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Stalled OCR job sweep failed: %s", exc)
+    _stall_last_sweep = now
 
 
 def _should_skip_path(path: Path) -> bool:
@@ -196,6 +216,7 @@ def _poll_loop(folder: Path, pages: int, poll_seconds: float, seen: Dict[Path, s
                 logger.debug("Failed to queue OCR job for %s: %s", path, exc)
             _process_pdf(path, fp, pages, {"ocred": 0, "skipped": 0, "errors": 0})
             seen[path] = fp
+        _maybe_mark_stalled()
         time.sleep(max(1.0, poll_seconds))
 
 
@@ -234,6 +255,7 @@ def _watchdog_loop(folder: Path, pages: int, poll_seconds: float, seen: Dict[Pat
                 logger.debug("Failed to queue OCR job for %s: %s", path, exc)
             _process_pdf(path, fp, pages, {"ocred": 0, "skipped": 0, "errors": 0})
             seen[path] = fp
+            _maybe_mark_stalled()
 
     observer = Observer()
     observer.schedule(Handler(), str(folder), recursive=True)
@@ -241,6 +263,7 @@ def _watchdog_loop(folder: Path, pages: int, poll_seconds: float, seen: Dict[Pat
     logger.info("watchdog active; watching %s", folder)
     try:
         while True:
+            _maybe_mark_stalled()
             time.sleep(1.0)
     finally:
         observer.stop()
