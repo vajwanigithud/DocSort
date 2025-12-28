@@ -10,6 +10,7 @@ from docsort.app.services.folder_service import folder_service
 from docsort.app.services.source_poller import SourcePoller
 from docsort.app.services import pdf_utils
 from docsort.app.storage import settings_store, done_log_store
+from docsort.app.ui.ocr_jobs_widget import OcrJobsWidget
 from docsort.app.ui.tabs_done import DoneTab
 from docsort.app.ui.tabs_needs_attention import NeedsAttentionTab
 from docsort.app.ui.tabs_rename_move import RenameMoveTab
@@ -38,6 +39,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.rename_tab = RenameMoveTab(self.state, self.folder_service, self.refresh_all)
         self.attention_tab = NeedsAttentionTab(self.state, self.refresh_all)
         self.done_tab = DoneTab(self.refresh_all)
+        self.jobs_tab = OcrJobsWidget()
         self.settings_tab = SettingsTab(
             self.folder_service,
             self.refresh_all,
@@ -51,6 +53,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tabs.addTab(self.rename_tab, "Rename & Move")
         self.tabs.addTab(self.attention_tab, "Needs Attention")
         self.tabs.addTab(self.done_tab, "Done")
+        self.tabs.addTab(self.jobs_tab, "OCR Jobs")
         self.tabs.addTab(self.settings_tab, "Settings")
 
         self.setCentralWidget(self.tabs)
@@ -74,6 +77,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.rename_tab,
             self.attention_tab,
             self.done_tab,
+            self.jobs_tab,
             self.settings_tab,
         ]:
             if hasattr(tab, "refresh"):
