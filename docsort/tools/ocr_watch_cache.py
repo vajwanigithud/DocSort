@@ -103,6 +103,30 @@ def _process_pdf(path: Path, fingerprint: Optional[str], pages: int, stats: Dict
         fp = fingerprint or ocr_cache_store.compute_fingerprint(path)
         if not fp:
             logger.debug("No fingerprint for %s; processing without cache check", path)
+        max_attempts = ocr_job_store.DEFAULT_MAX_ATTEMPTS
+        try:
+            existing = ocr_job_store.get_job(str(path), max_pages=ocr_status_utils.OCR_STATUS_PAGES, fingerprint=fp)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Failed to read OCR job before processing %s: %s", path, exc)
+            existing = None
+        if existing and existing.get("attempts") is not None:
+            try:
+                if not ocr_job_store.can_retry(existing, max_attempts=max_attempts):
+                    try:
+                        ocr_job_store.upsert_job(
+                            str(path),
+                            max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                            status="FAILED",
+                            fingerprint=fp,
+                            last_error=f"Max attempts exceeded ({max_attempts})",
+                            worker_id=WORKER_ID,
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.debug("Failed to mark OCR job max-attempts for %s: %s", path, exc)
+                    logger.info("Skipping OCR for %s due to max attempts reached", path.name)
+                    return
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("Retry check failed for %s: %s", path, exc)
         cached_hit = False
         try:
             if fp and ocr_cache_store.is_cached(str(path), max_pages=pages, fingerprint=fp):

@@ -13,6 +13,7 @@ _db_ready = False
 _db_lock = threading.Lock()
 
 STATUS_ALLOWED = {"QUEUED", "RUNNING", "DONE", "FAILED"}
+DEFAULT_MAX_ATTEMPTS = 3
 
 
 def normalize_path(path: str) -> str:
@@ -82,6 +83,14 @@ def _job_key(norm_path: str, max_pages: int, fingerprint: Optional[str]) -> str:
     return f"{norm_path}|{max_pages}|{fingerprint or ''}"
 
 
+def can_retry(job: Dict[str, object], max_attempts: int = DEFAULT_MAX_ATTEMPTS) -> bool:
+    try:
+        attempts = int(job.get("attempts", 0))
+    except Exception:
+        attempts = 0
+    return attempts < int(max_attempts)
+
+
 def _effective_fingerprint(path: str, fingerprint: Optional[str]) -> Optional[str]:
     if fingerprint is not None:
         return fingerprint
@@ -100,6 +109,7 @@ def upsert_job(
     fingerprint: Optional[str] = None,
     last_error: Optional[str] = None,
     worker_id: Optional[str] = None,
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
 ) -> None:
     norm_path = normalize_path(path)
     status = status.upper()
@@ -112,13 +122,26 @@ def upsert_job(
     try:
         with _connect() as conn:
             cur = conn.execute(
-                "SELECT attempts FROM ocr_jobs WHERE job_key = ? LIMIT 1",
+                """
+                SELECT attempts, status, updated_at, last_error, worker_id
+                FROM ocr_jobs
+                WHERE job_key = ?
+                LIMIT 1
+                """,
                 (job_key,),
             )
             row = cur.fetchone()
             prior_attempts = int(row[0]) if row and row[0] is not None else 0
             attempts = prior_attempts
-            if status == "RUNNING":
+            capped_attempts = int(max_attempts)
+            current_status = str(row[1]) if row and len(row) > 1 else ""
+            effective_status = status
+            effective_last_error = last_error if last_error is not None else (row[3] if row and len(row) > 3 else None)
+            effective_worker = worker_id if worker_id is not None else (row[4] if row and len(row) > 4 else None)
+            if status in {"QUEUED", "RUNNING"} and prior_attempts >= capped_attempts:
+                effective_status = "FAILED"
+                effective_last_error = f"Max attempts exceeded ({capped_attempts})"
+            elif status == "RUNNING":
                 attempts = prior_attempts + 1
             conn.execute(
                 """
@@ -136,11 +159,11 @@ def upsert_job(
                     norm_path,
                     effective_fingerprint,
                     max_pages,
-                    status,
+                    effective_status,
                     updated_at,
                     attempts,
-                    last_error,
-                    worker_id,
+                    effective_last_error,
+                    effective_worker,
                 ),
             )
             conn.commit()
