@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -49,11 +50,32 @@ class OcrJobsWidget(QtWidgets.QWidget):
         self.refresh_btn.clicked.connect(self.refresh_jobs)
         self.clear_all_btn = QtWidgets.QPushButton("Clear All")
         self.clear_all_btn.clicked.connect(self._confirm_clear_all)
+        self.sweep_btn = QtWidgets.QPushButton("Sweep stalled now")
+        self.sweep_btn.clicked.connect(self._sweep_stalled)
         header.addWidget(self.auto_refresh)
         header.addStretch()
         header.addWidget(self.refresh_btn)
         header.addWidget(self.clear_all_btn)
+        header.addWidget(self.sweep_btn)
         layout.addLayout(header)
+
+        summary = QtWidgets.QHBoxLayout()
+        self.summary_labels: Dict[str, QtWidgets.QLabel] = {}
+        for key, color in [
+            ("RUNNING", "#cce5ff"),
+            ("QUEUED", "#eeeeee"),
+            ("FAILED", "#f8d7da"),
+            ("DONE", "#d4edda"),
+            ("STALLED", "#fff3cd"),
+        ]:
+            lbl = QtWidgets.QLabel(f"{key}: 0")
+            lbl.setStyleSheet(f"background: {color}; padding: 4px 8px; border-radius: 6px; font-weight: bold;")
+            summary.addWidget(lbl)
+            self.summary_labels[key] = lbl
+        if "STALLED" in self.summary_labels:
+            self.summary_labels["STALLED"].setToolTip("Stalled: RUNNING >300s or QUEUED >1800s without update.")
+        summary.addStretch()
+        layout.addLayout(summary)
 
         self.table = QtWidgets.QTableWidget(0, 6, self)
         self.table.setHorizontalHeaderLabels(["File", "Status", "Updated", "Attempts", "Worker", "Error"])
@@ -102,6 +124,7 @@ class OcrJobsWidget(QtWidgets.QWidget):
             self._jobs = jobs or []
             self._populate_table()
             self.clear_all_btn.setEnabled(bool(self._jobs))
+            self._update_summary(self._jobs)
             if not self._jobs:
                 self.stack.setCurrentWidget(self.empty_label)
             else:
@@ -240,6 +263,46 @@ class OcrJobsWidget(QtWidgets.QWidget):
         font = item.font()
         font.setBold(True)
         item.setFont(font)
+
+    def _sweep_stalled(self) -> None:
+        try:
+            updated = ocr_job_store.mark_stalled_jobs()
+            if updated:
+                self._set_status(f"Marked {updated} stalled job(s) as FAILED.")
+            else:
+                self._set_status("No stalled jobs found.")
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Failed to sweep stalled OCR jobs: %s", exc)
+            self._set_status("Sweep failed.")
+        self.refresh_jobs()
+
+    def _update_summary(self, jobs: List[Dict[str, object]]) -> None:
+        counts = {"RUNNING": 0, "QUEUED": 0, "FAILED": 0, "DONE": 0, "STALLED": 0}
+        now = datetime.now(timezone.utc)
+        running_cutoff = now - timedelta(seconds=300)
+        queued_cutoff = now - timedelta(seconds=1800)
+        for job in jobs:
+            status = str(job.get("status") or "").upper()
+            if status in counts:
+                counts[status] += 1
+            updated_at_raw = job.get("updated_at")
+            updated_dt: Optional[datetime] = None
+            if updated_at_raw:
+                try:
+                    s = str(updated_at_raw)
+                    if s.endswith("Z"):
+                        s = s[:-1] + "+00:00"
+                    updated_dt = datetime.fromisoformat(s)
+                    if updated_dt.tzinfo is None:
+                        updated_dt = updated_dt.replace(tzinfo=timezone.utc)
+                except Exception:
+                    updated_dt = None
+            if status == "RUNNING" and updated_dt and updated_dt < running_cutoff:
+                counts["STALLED"] += 1
+            elif status == "QUEUED" and updated_dt and updated_dt < queued_cutoff:
+                counts["STALLED"] += 1
+        for key, lbl in self.summary_labels.items():
+            lbl.setText(f"{key}: {counts.get(key, 0)}")
 
     def _confirm_clear_all(self) -> None:
         reply = QtWidgets.QMessageBox.question(
