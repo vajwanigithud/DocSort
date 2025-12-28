@@ -61,8 +61,9 @@ def _maybe_mark_stalled() -> None:
         if updated:
             logger.info("Marked %s stalled OCR job(s) as FAILED", updated)
     except Exception as exc:  # noqa: BLE001
-        logger.debug("Stalled OCR job sweep failed: %s", exc)
-    _stall_last_sweep = now
+        logger.warning("Stalled OCR job sweep failed: %s", exc)
+        return
+    _stall_last_sweep = time.time()
 
 
 def _maybe_prune_terminal() -> None:
@@ -71,7 +72,6 @@ def _maybe_prune_terminal() -> None:
     if now - _last_prune < PRUNE_INTERVAL_SECONDS:
         return
     if not _prune_lock.acquire(blocking=False):
-        _last_prune = now
         return
     try:
         removed = ocr_job_store.prune_terminal_jobs()
@@ -79,7 +79,7 @@ def _maybe_prune_terminal() -> None:
             logger.info("Pruned %s completed OCR job(s)", removed)
         _last_prune = time.time()
     except Exception as exc:  # noqa: BLE001
-        logger.debug("OCR job prune failed: %s", exc)
+        logger.warning("OCR job prune failed: %s", exc)
     finally:
         _prune_lock.release()
 
@@ -127,7 +127,7 @@ def _process_pdf(path: Path, fingerprint: Optional[str], pages: int, stats: Dict
         if not fp:
             logger.debug("No fingerprint for %s; processing without cache check", path)
         try:
-            existing = ocr_job_store.get_job(str(path), max_pages=ocr_status_utils.OCR_STATUS_PAGES, fingerprint=fp)
+            existing = ocr_job_store.get_job(str(path), max_pages=pages, fingerprint=fp)
         except Exception as exc:  # noqa: BLE001
             logger.debug("Failed to read OCR job before processing %s: %s", path, exc)
             existing = None
@@ -137,7 +137,7 @@ def _process_pdf(path: Path, fingerprint: Optional[str], pages: int, stats: Dict
                     try:
                         ocr_job_store.upsert_job(
                             str(path),
-                            max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                            max_pages=pages,
                             status="FAILED",
                             fingerprint=fp,
                             last_error=f"Max attempts exceeded ({MAX_ATTEMPTS})",
@@ -162,7 +162,7 @@ def _process_pdf(path: Path, fingerprint: Optional[str], pages: int, stats: Dict
             try:
                 ocr_job_store.upsert_job(
                     str(path),
-                    max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                    max_pages=pages,
                     status="DONE",
                     fingerprint=fp,
                     worker_id=WORKER_ID,
@@ -177,7 +177,7 @@ def _process_pdf(path: Path, fingerprint: Optional[str], pages: int, stats: Dict
                 try:
                     ocr_job_store.upsert_job(
                         str(path),
-                        max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                        max_pages=pages,
                         status="RUNNING",
                         fingerprint=fp,
                         worker_id=WORKER_ID,
@@ -192,7 +192,7 @@ def _process_pdf(path: Path, fingerprint: Optional[str], pages: int, stats: Dict
                 try:
                     ocr_job_store.upsert_job(
                         str(path),
-                        max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                        max_pages=pages,
                         status="DONE",
                         fingerprint=fp,
                         worker_id=WORKER_ID,
@@ -206,7 +206,7 @@ def _process_pdf(path: Path, fingerprint: Optional[str], pages: int, stats: Dict
                 try:
                     ocr_job_store.upsert_job(
                         str(path),
-                        max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                        max_pages=pages,
                         status="FAILED",
                         fingerprint=fp,
                         last_error=str(exc)[:500],
@@ -229,7 +229,7 @@ def _initial_scan(folder: Path, pages: int) -> Dict[Path, str]:
         try:
             ocr_job_store.upsert_job(
                 str(pdf),
-                max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                max_pages=pages,
                 status="QUEUED",
                 fingerprint=fp,
                 worker_id=WORKER_ID,
@@ -259,7 +259,7 @@ def _poll_loop(folder: Path, pages: int, poll_seconds: float, seen: Dict[Path, s
             try:
                 ocr_job_store.upsert_job(
                     str(path),
-                    max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                    max_pages=pages,
                     status="QUEUED",
                     fingerprint=fp,
                     worker_id=WORKER_ID,
@@ -300,7 +300,7 @@ def _watchdog_loop(folder: Path, pages: int, poll_seconds: float, seen: Dict[Pat
             try:
                 ocr_job_store.upsert_job(
                     str(path),
-                    max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                    max_pages=pages,
                     status="QUEUED",
                     fingerprint=fp,
                     worker_id=WORKER_ID,

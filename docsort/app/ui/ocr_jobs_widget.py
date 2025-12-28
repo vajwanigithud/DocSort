@@ -156,7 +156,11 @@ class OcrJobsWidget(QtWidgets.QWidget):
                 attempts_raw = int(job.get("attempts") or 0)
             except Exception:
                 attempts_raw = 0
-            attempts = f"{attempts_raw}/{ocr_job_store.DEFAULT_MAX_ATTEMPTS}"
+            try:
+                cap = int(job.get("max_attempts") or ocr_job_store.DEFAULT_MAX_ATTEMPTS)
+            except Exception:
+                cap = ocr_job_store.DEFAULT_MAX_ATTEMPTS
+            attempts = f"{attempts_raw}/{cap}"
             worker = str(job.get("worker_id") or "")
             error_full = str(job.get("last_error") or "")
             error = self._truncate(error_full)
@@ -198,7 +202,11 @@ class OcrJobsWidget(QtWidgets.QWidget):
         if not job.get("last_error"):
             copy_error_action.setEnabled(False)
         try:
-            retry_allowed = ocr_job_store.can_retry(job, max_attempts=ocr_job_store.DEFAULT_MAX_ATTEMPTS)
+            cap = int(job.get("max_attempts") or ocr_job_store.DEFAULT_MAX_ATTEMPTS)
+        except Exception:
+            cap = ocr_job_store.DEFAULT_MAX_ATTEMPTS
+        try:
+            retry_allowed = ocr_job_store.can_retry(job, max_attempts=cap)
         except Exception:
             retry_allowed = True
         if not retry_allowed:
@@ -219,13 +227,24 @@ class OcrJobsWidget(QtWidgets.QWidget):
         max_pages = int(job.get("max_pages") or 1)
         fingerprint = job.get("file_fingerprint")
         try:
-            if not ocr_job_store.can_retry(job, max_attempts=ocr_job_store.DEFAULT_MAX_ATTEMPTS):
+            cap = int(job.get("max_attempts") or ocr_job_store.DEFAULT_MAX_ATTEMPTS)
+        except Exception:
+            cap = ocr_job_store.DEFAULT_MAX_ATTEMPTS
+        try:
+            if not ocr_job_store.can_retry(job, max_attempts=cap):
                 self._set_status("Max attempts reached; cannot retry.")
                 return
         except Exception:
             pass
         try:
-            ocr_job_store.upsert_job(path, max_pages=max_pages, status="QUEUED", fingerprint=fingerprint, worker_id="ui")
+            ocr_job_store.upsert_job(
+                path,
+                max_pages=max_pages,
+                status="QUEUED",
+                fingerprint=fingerprint,
+                worker_id="ui",
+                max_attempts=cap,
+            )
             self._set_status("Job queued.")
             self.refresh_jobs()
         except Exception as exc:  # noqa: BLE001
