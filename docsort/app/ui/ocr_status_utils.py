@@ -34,5 +34,5 @@ def get_ocr_tooltip(path: Path, max_pages: int = OCR_STATUS_PAGES) -> str:
 
 
 def format_ocr_badge(status: str) -> str:
-    badges = {"pending": "🟡 OCR pending", "ready": "🟢 OCR ready", "failed": "🔴 OCR failed"}
+    badges = {"pending": "OCR pending", "ready": "OCR ready", "failed": "OCR failed"}
     return badges.get(status, "")
