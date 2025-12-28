@@ -1,7 +1,7 @@
 import logging
 import sqlite3
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -311,4 +311,38 @@ def clear_all_jobs() -> int:
             return cur.rowcount if cur else 0
     except Exception as exc:  # noqa: BLE001
         logger.debug("Failed to clear all OCR jobs: %s", exc)
+        return 0
+
+
+def prune_terminal_jobs(older_than_seconds: int = 86400) -> int:
+    try:
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=int(older_than_seconds))
+        with _connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT job_key, updated_at
+                FROM ocr_jobs
+                WHERE status IN ('DONE', 'FAILED')
+                """
+            )
+            to_delete = []
+            for row in cur.fetchall():
+                job_key = row[0]
+                updated_raw = row[1]
+                if not updated_raw:
+                    continue
+                try:
+                    dt = datetime.fromisoformat(str(updated_raw))
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                except Exception:
+                    continue
+                if dt < cutoff:
+                    to_delete.append(job_key)
+            if to_delete:
+                conn.executemany("DELETE FROM ocr_jobs WHERE job_key = ?", [(k,) for k in to_delete])
+                conn.commit()
+            return len(to_delete)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Failed to prune terminal OCR jobs: %s", exc)
         return 0

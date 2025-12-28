@@ -28,6 +28,9 @@ WORKER_ID = "ocr_watch_cache"
 STALL_SWEEP_INTERVAL_SECONDS = 30
 _stall_last_sweep = 0.0
 MAX_ATTEMPTS = ocr_job_store.DEFAULT_MAX_ATTEMPTS
+PRUNE_INTERVAL_SECONDS = 600
+_last_prune = 0.0
+_prune_lock = threading.Lock()
 
 
 def _setup_logging() -> None:
@@ -60,6 +63,25 @@ def _maybe_mark_stalled() -> None:
     except Exception as exc:  # noqa: BLE001
         logger.debug("Stalled OCR job sweep failed: %s", exc)
     _stall_last_sweep = now
+
+
+def _maybe_prune_terminal() -> None:
+    global _last_prune
+    now = time.time()
+    if now - _last_prune < PRUNE_INTERVAL_SECONDS:
+        return
+    if not _prune_lock.acquire(blocking=False):
+        _last_prune = now
+        return
+    try:
+        removed = ocr_job_store.prune_terminal_jobs()
+        if removed:
+            logger.info("Pruned %s completed OCR job(s)", removed)
+        _last_prune = time.time()
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("OCR job prune failed: %s", exc)
+    finally:
+        _prune_lock.release()
 
 
 def _should_skip_path(path: Path) -> bool:
@@ -248,6 +270,7 @@ def _poll_loop(folder: Path, pages: int, poll_seconds: float, seen: Dict[Path, s
             _process_pdf(path, fp, pages, {"ocred": 0, "skipped": 0, "errors": 0})
             seen[path] = fp
         _maybe_mark_stalled()
+        _maybe_prune_terminal()
         time.sleep(max(1.0, poll_seconds))
 
 
@@ -288,6 +311,7 @@ def _watchdog_loop(folder: Path, pages: int, poll_seconds: float, seen: Dict[Pat
             _process_pdf(path, fp, pages, {"ocred": 0, "skipped": 0, "errors": 0})
             seen[path] = fp
             _maybe_mark_stalled()
+            _maybe_prune_terminal()
 
     observer = Observer()
     observer.schedule(Handler(), str(folder), recursive=True)
@@ -296,6 +320,7 @@ def _watchdog_loop(folder: Path, pages: int, poll_seconds: float, seen: Dict[Pat
     try:
         while True:
             _maybe_mark_stalled()
+            _maybe_prune_terminal()
             time.sleep(1.0)
     finally:
         observer.stop()

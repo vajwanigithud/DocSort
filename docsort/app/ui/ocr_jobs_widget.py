@@ -52,11 +52,15 @@ class OcrJobsWidget(QtWidgets.QWidget):
         self.clear_all_btn.clicked.connect(self._confirm_clear_all)
         self.sweep_btn = QtWidgets.QPushButton("Sweep stalled now")
         self.sweep_btn.clicked.connect(self._sweep_stalled)
+        self.clean_completed_btn = QtWidgets.QPushButton("Clean old completed")
+        self.clean_completed_btn.setToolTip("Remove DONE / FAILED jobs older than 24 hours")
+        self.clean_completed_btn.clicked.connect(self._clean_old_completed)
         header.addWidget(self.auto_refresh)
         header.addStretch()
         header.addWidget(self.refresh_btn)
         header.addWidget(self.clear_all_btn)
         header.addWidget(self.sweep_btn)
+        header.addWidget(self.clean_completed_btn)
         layout.addLayout(header)
 
         summary = QtWidgets.QHBoxLayout()
@@ -123,8 +127,11 @@ class OcrJobsWidget(QtWidgets.QWidget):
             jobs = ocr_job_store.list_recent(limit=200)
             self._jobs = jobs or []
             self._populate_table()
+            counts = self._update_summary(self._jobs)
             self.clear_all_btn.setEnabled(bool(self._jobs))
-            self._update_summary(self._jobs)
+            done_failed = (counts.get("DONE", 0) + counts.get("FAILED", 0)) > 0
+            if hasattr(self, "clean_completed_btn"):
+                self.clean_completed_btn.setEnabled(done_failed)
             if not self._jobs:
                 self.stack.setCurrentWidget(self.empty_label)
             else:
@@ -276,7 +283,16 @@ class OcrJobsWidget(QtWidgets.QWidget):
             self._set_status("Sweep failed.")
         self.refresh_jobs()
 
-    def _update_summary(self, jobs: List[Dict[str, object]]) -> None:
+    def _clean_old_completed(self) -> None:
+        try:
+            removed = ocr_job_store.prune_terminal_jobs()
+            self._set_status(f"Removed {removed} completed job(s).")
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Failed to clean completed OCR jobs: %s", exc)
+            self._set_status("Clean failed.")
+        self.refresh_jobs()
+
+    def _update_summary(self, jobs: List[Dict[str, object]]) -> Dict[str, int]:
         counts = {"RUNNING": 0, "QUEUED": 0, "FAILED": 0, "DONE": 0, "STALLED": 0}
         now = datetime.now(timezone.utc)
         running_cutoff = now - timedelta(seconds=300)
@@ -303,6 +319,7 @@ class OcrJobsWidget(QtWidgets.QWidget):
                 counts["STALLED"] += 1
         for key, lbl in self.summary_labels.items():
             lbl.setText(f"{key}: {counts.get(key, 0)}")
+        return counts
 
     def _confirm_clear_all(self) -> None:
         reply = QtWidgets.QMessageBox.question(
