@@ -14,8 +14,27 @@ class OcrJobsWidget(QtWidgets.QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._jobs: List[Dict[str, object]] = []
+        self._refresh_timer = QtCore.QTimer(self)
+        self._refresh_timer.setInterval(4000)
+        self._refresh_timer.timeout.connect(self.refresh_jobs)
         self._build_ui()
         self.refresh_jobs()
+
+    def showEvent(self, event: QtGui.QShowEvent) -> None:  # type: ignore[override]
+        try:
+            if self._refresh_timer and not self._refresh_timer.isActive():
+                self._refresh_timer.start()
+        except Exception:
+            pass
+        super().showEvent(event)
+
+    def hideEvent(self, event: QtGui.QHideEvent) -> None:  # type: ignore[override]
+        try:
+            if self._refresh_timer and self._refresh_timer.isActive():
+                self._refresh_timer.stop()
+        except Exception:
+            pass
+        super().hideEvent(event)
 
     def refresh(self) -> None:
         self.refresh_jobs()
