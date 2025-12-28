@@ -278,3 +278,14 @@ def mark_stalled_jobs(
     except Exception as exc:  # noqa: BLE001
         logger.debug("Failed to mark stalled OCR jobs: %s", exc)
         return 0
+
+
+def clear_all_jobs() -> int:
+    try:
+        with _connect() as conn:
+            cur = conn.execute("DELETE FROM ocr_jobs")
+            conn.commit()
+            return cur.rowcount if cur else 0
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Failed to clear all OCR jobs: %s", exc)
+        return 0

@@ -22,7 +22,7 @@ class OcrJobsWidget(QtWidgets.QWidget):
 
     def showEvent(self, event: QtGui.QShowEvent) -> None:  # type: ignore[override]
         try:
-            if self._refresh_timer and not self._refresh_timer.isActive():
+            if self._refresh_timer and self.auto_refresh.isChecked() and not self._refresh_timer.isActive():
                 self._refresh_timer.start()
         except Exception:
             pass
@@ -42,10 +42,17 @@ class OcrJobsWidget(QtWidgets.QWidget):
     def _build_ui(self) -> None:
         layout = QtWidgets.QVBoxLayout(self)
         header = QtWidgets.QHBoxLayout()
+        self.auto_refresh = QtWidgets.QCheckBox("Auto-refresh")
+        self.auto_refresh.setChecked(True)
+        self.auto_refresh.toggled.connect(self._toggle_auto_refresh)
         self.refresh_btn = QtWidgets.QPushButton("Refresh")
         self.refresh_btn.clicked.connect(self.refresh_jobs)
+        self.clear_all_btn = QtWidgets.QPushButton("Clear All")
+        self.clear_all_btn.clicked.connect(self._confirm_clear_all)
+        header.addWidget(self.auto_refresh)
         header.addStretch()
         header.addWidget(self.refresh_btn)
+        header.addWidget(self.clear_all_btn)
         layout.addLayout(header)
 
         self.table = QtWidgets.QTableWidget(0, 6, self)
@@ -70,6 +77,17 @@ class OcrJobsWidget(QtWidgets.QWidget):
         self.status_label.setStyleSheet("color: #555;")
         layout.addWidget(self.status_label)
 
+    def _toggle_auto_refresh(self, enabled: bool) -> None:
+        try:
+            if not self._refresh_timer:
+                return
+            if enabled and not self._refresh_timer.isActive():
+                self._refresh_timer.start()
+            elif not enabled and self._refresh_timer.isActive():
+                self._refresh_timer.stop()
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Failed to toggle auto-refresh: %s", exc)
+
     def _set_status(self, text: str) -> None:
         self.status_label.setText(text)
 
@@ -83,6 +101,7 @@ class OcrJobsWidget(QtWidgets.QWidget):
             jobs = ocr_job_store.list_recent(limit=200)
             self._jobs = jobs or []
             self._populate_table()
+            self.clear_all_btn.setEnabled(bool(self._jobs))
             if not self._jobs:
                 self.stack.setCurrentWidget(self.empty_label)
             else:
@@ -105,11 +124,17 @@ class OcrJobsWidget(QtWidgets.QWidget):
             updated = str(job.get("updated_at") or "")
             attempts = str(job.get("attempts") or "")
             worker = str(job.get("worker_id") or "")
-            error = self._truncate(str(job.get("last_error") or ""))
+            error_full = str(job.get("last_error") or "")
+            error = self._truncate(error_full)
             values = [file_path, status, updated, attempts, worker, error]
             for col, val in enumerate(values):
                 item = QtWidgets.QTableWidgetItem(val)
                 item.setData(QtCore.Qt.UserRole, job)
+                if col == 1:
+                    item.setText(str(val).upper())
+                    self._style_status_item(item, status)
+                if col == 5:
+                    item.setToolTip(error_full or "")
                 self.table.setItem(row, col, item)
 
     def _job_for_row(self, row: int) -> Optional[Dict[str, object]]:
@@ -135,6 +160,9 @@ class OcrJobsWidget(QtWidgets.QWidget):
         retry_action = menu.addAction("Retry OCR")
         clear_action = menu.addAction("Clear Job")
         copy_action = menu.addAction("Copy Path")
+        copy_error_action = menu.addAction("Copy Error")
+        if not job.get("last_error"):
+            copy_error_action.setEnabled(False)
         chosen = menu.exec(self.table.mapToGlobal(pos))
         if chosen == retry_action:
             self._retry_job(job)
@@ -142,6 +170,8 @@ class OcrJobsWidget(QtWidgets.QWidget):
             self._clear_job(job)
         elif chosen == copy_action:
             self._copy_path(job)
+        elif chosen == copy_error_action:
+            self._copy_error(job)
 
     def _retry_job(self, job: Dict[str, object]) -> None:
         path = str(job.get("file_path") or "")
@@ -171,3 +201,42 @@ class OcrJobsWidget(QtWidgets.QWidget):
         path = str(job.get("file_path") or "")
         QtGui.QGuiApplication.clipboard().setText(path)
         self._set_status("Path copied to clipboard.")
+
+    def _copy_error(self, job: Dict[str, object]) -> None:
+        err = str(job.get("last_error") or "")
+        if not err:
+            return
+        QtGui.QGuiApplication.clipboard().setText(err)
+        self._set_status("Error copied to clipboard.")
+
+    def _style_status_item(self, item: QtWidgets.QTableWidgetItem, status: str) -> None:
+        status_upper = (status or "").upper()
+        colors = {
+            "QUEUED": ("#eeeeee", "#444444"),
+            "RUNNING": ("#cce5ff", "#004085"),
+            "DONE": ("#d4edda", "#155724"),
+            "FAILED": ("#f8d7da", "#721c24"),
+        }
+        bg, fg = colors.get(status_upper, ("#eeeeee", "#444444"))
+        item.setBackground(QtGui.QColor(bg))
+        item.setForeground(QtGui.QColor(fg))
+        font = item.font()
+        font.setBold(True)
+        item.setFont(font)
+
+    def _confirm_clear_all(self) -> None:
+        reply = QtWidgets.QMessageBox.question(
+            self,
+            "Clear All OCR Jobs",
+            "Are you sure you want to clear all OCR jobs?",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+        )
+        if reply != QtWidgets.QMessageBox.Yes:
+            return
+        try:
+            removed = ocr_job_store.clear_all_jobs()
+            self._set_status(f"Cleared {removed} job(s).")
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Failed to clear all OCR jobs: %s", exc)
+            self._set_status("Failed to clear jobs.")
+        self.refresh_jobs()
