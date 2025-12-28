@@ -6,7 +6,8 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from docsort.app.core.state import AppState, DocumentItem
 from docsort.app.services import pdf_utils, routing_service
-from docsort.app.storage import settings_store, split_completion_store
+from docsort.app.storage import ocr_cache_store, settings_store, split_completion_store
+from docsort.app.ui import ocr_status_utils
 from docsort.app.ui.pdf_preview_widget import PdfPreviewWidget
 
 
@@ -47,6 +48,8 @@ class ScannedTab(QtWidgets.QWidget):
         main_layout.addLayout(header_controls)
 
         self.list_widget = QtWidgets.QListWidget()
+        self.list_widget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.list_widget.customContextMenuRequested.connect(self._show_context_menu)
         layout.addWidget(self.list_widget, 1)
 
         self.preview_pdf = PdfPreviewWidget()
@@ -124,11 +127,16 @@ class ScannedTab(QtWidgets.QWidget):
             is_done = split_completion_store.is_split_complete(path)
             if not show_completed and is_done:
                 continue
+            status = ocr_status_utils.get_ocr_status(path)
+            badge = ocr_status_utils.format_ocr_badge(status)
             label = f"{doc.display_name} ({doc.page_count}p)"
+            if badge:
+                label = f"{label} - {badge}"
             if is_done:
                 label = f"{label} ✅"
             item = QtWidgets.QListWidgetItem(label)
             item.setData(QtCore.Qt.UserRole, doc)
+            item.setToolTip(ocr_status_utils.get_ocr_tooltip(path))
             self.list_widget.addItem(item)
         if self.list_widget.count() and self.list_widget.currentRow() < 0:
             self.list_widget.setCurrentRow(0)
@@ -223,3 +231,66 @@ class ScannedTab(QtWidgets.QWidget):
             self.log.warning("Scanned preview failed for %s: %s", path, exc)
             self._clear_preview()
             self.preview_image.setText("Preview unavailable")
+
+    def _cached_ocr_text(self, path: Path) -> str:
+        fingerprint = ""
+        try:
+            fingerprint = ocr_cache_store.compute_fingerprint(path)
+        except Exception:
+            fingerprint = ""
+        try:
+            return ocr_cache_store.get_cached_text(
+                str(path),
+                max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                fingerprint=fingerprint or None,
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.log.debug("Failed to read cached OCR text for %s: %s", path, exc)
+            return ""
+
+    def _handle_rerun_ocr(self, path: Path) -> None:
+        try:
+            fingerprint = ocr_cache_store.compute_fingerprint(path)
+            ocr_cache_store.delete_cached_text(
+                str(path),
+                max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                fingerprint=fingerprint or None,
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.log.debug("Failed to clear OCR cache for %s: %s", path, exc)
+        self.refresh()
+
+    def _show_cached_ocr_text(self, path: Path) -> None:
+        cached_text = self._cached_ocr_text(path)
+        if not cached_text:
+            QtWidgets.QMessageBox.information(self, "OCR Text", "No cached OCR text found.")
+            return
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle(f"OCR Text - {path.name}")
+        layout = QtWidgets.QVBoxLayout(dialog)
+        text_widget = QtWidgets.QPlainTextEdit()
+        text_widget.setReadOnly(True)
+        text_widget.setPlainText(cached_text)
+        layout.addWidget(text_widget)
+        close_btn = QtWidgets.QPushButton("Close")
+        close_btn.clicked.connect(dialog.accept)
+        layout.addWidget(close_btn)
+        dialog.resize(700, 500)
+        dialog.exec()
+
+    def _show_context_menu(self, pos: QtCore.QPoint) -> None:
+        item = self.list_widget.itemAt(pos)
+        if not item:
+            return
+        doc = item.data(QtCore.Qt.UserRole)
+        if not isinstance(doc, DocumentItem):
+            return
+        path = Path(doc.source_path)
+        menu = QtWidgets.QMenu(self.list_widget)
+        rerun_action = menu.addAction("Re-run OCR")
+        view_action = menu.addAction("View OCR Text")
+        chosen = menu.exec(self.list_widget.mapToGlobal(pos))
+        if chosen == rerun_action:
+            self._handle_rerun_ocr(path)
+        elif chosen == view_action:
+            self._show_cached_ocr_text(path)

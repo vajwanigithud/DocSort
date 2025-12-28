@@ -134,3 +134,61 @@ def upsert_cached_text(path: str, max_pages: int, text: str, fingerprint: Option
             conn.commit()
     except Exception as exc:  # noqa: BLE001
         logger.debug("Failed to write OCR cache for %s: %s", path, exc)
+
+
+def delete_cached_text(path: str, max_pages: int, fingerprint: Optional[str] = None) -> None:
+    effective_fingerprint = fingerprint or compute_fingerprint(Path(path))
+    norm_path = _normalized_path(path)
+    try:
+        with _connect() as conn:
+            if effective_fingerprint:
+                conn.execute(
+                    """
+                    DELETE FROM ocr_cache
+                    WHERE file_path = ? AND file_fingerprint = ? AND max_pages = ? AND ocr_engine_version = ?
+                    """,
+                    (norm_path, effective_fingerprint, max_pages, OCR_ENGINE_VERSION),
+                )
+            else:
+                conn.execute(
+                    """
+                    DELETE FROM ocr_cache
+                    WHERE file_path = ? AND max_pages = ? AND ocr_engine_version = ?
+                    """,
+                    (norm_path, max_pages, OCR_ENGINE_VERSION),
+                )
+            conn.commit()
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Failed to delete OCR cache for %s: %s", path, exc)
+
+
+def has_cache_row(path: str, max_pages: int, fingerprint: Optional[str] = None) -> bool:
+    norm_path = _normalized_path(path)
+    try:
+        with _connect() as conn:
+            if fingerprint:
+                cursor = conn.execute(
+                    """
+                    SELECT 1
+                    FROM ocr_cache
+                    WHERE file_path = ? AND file_fingerprint = ? AND max_pages = ? AND ocr_engine_version = ?
+                    LIMIT 1
+                    """,
+                    (norm_path, fingerprint, max_pages, OCR_ENGINE_VERSION),
+                )
+                if cursor.fetchone():
+                    return True
+            cursor = conn.execute(
+                """
+                SELECT 1
+                FROM ocr_cache
+                WHERE file_path = ? AND max_pages = ? AND ocr_engine_version = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (norm_path, max_pages, OCR_ENGINE_VERSION),
+            )
+            return cursor.fetchone() is not None
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Failed to check OCR cache row for %s: %s", path, exc)
+        return False

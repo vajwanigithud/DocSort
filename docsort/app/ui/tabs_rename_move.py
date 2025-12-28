@@ -14,6 +14,7 @@ from docsort.app.services import ocr_suggestion_service
 from docsort.app.services.pdf_utils import detect_doc_fields_from_pdf
 from docsort.app.services.folder_service import FolderService
 from docsort.app.storage import settings_store, done_log_store, suggestion_memory_store, ocr_cache_store
+from docsort.app.ui import ocr_status_utils
 from docsort.app.ui.pdf_preview_widget import PdfPreviewWidget
 from docsort.app.ui.move_worker import MoveWorker
 
@@ -66,6 +67,8 @@ class RenameMoveTab(QtWidgets.QWidget):
     def _build_ui(self) -> None:
         layout = QtWidgets.QHBoxLayout(self)
         self.list_widget = QtWidgets.QListWidget()
+        self.list_widget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.list_widget.customContextMenuRequested.connect(self._show_context_menu)
         layout.addWidget(self.list_widget, 1)
 
         preview_layout = QtWidgets.QVBoxLayout()
@@ -194,6 +197,62 @@ class RenameMoveTab(QtWidgets.QWidget):
             if item.checkState() == QtCore.Qt.CheckState.Checked:
                 docs.append(doc)
         return docs
+
+    def _handle_rerun_ocr(self, doc: DocumentItem) -> None:
+        path = Path(doc.source_path)
+        try:
+            fingerprint = ocr_cache_store.compute_fingerprint(path)
+        except Exception:
+            fingerprint = ""
+        try:
+            ocr_cache_store.delete_cached_text(
+                str(path),
+                max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                fingerprint=fingerprint or None,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Failed to clear OCR cache for %s: %s", path, exc)
+        key = self._doc_key(doc)
+        self._ocr_suggestions.pop(key, None)
+        self._ocr_fingerprints.pop(key, None)
+        self._suggestions_map.pop(key, None)
+        self.refresh()
+
+    def _show_cached_ocr_text(self, doc: DocumentItem) -> None:
+        path = Path(doc.source_path)
+        fingerprint = self._ocr_fingerprints.get(self._doc_key(doc)) or ocr_cache_store.compute_fingerprint(path)
+        cached_text = self._load_cached_ocr_text(doc, fingerprint or "", max_pages=ocr_status_utils.OCR_STATUS_PAGES)
+        if not cached_text:
+            QtWidgets.QMessageBox.information(self, "OCR Text", "No cached OCR text found.")
+            return
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle(f"OCR Text - {path.name}")
+        layout = QtWidgets.QVBoxLayout(dialog)
+        text_widget = QtWidgets.QPlainTextEdit()
+        text_widget.setReadOnly(True)
+        text_widget.setPlainText(cached_text)
+        layout.addWidget(text_widget)
+        close_btn = QtWidgets.QPushButton("Close")
+        close_btn.clicked.connect(dialog.accept)
+        layout.addWidget(close_btn)
+        dialog.resize(700, 500)
+        dialog.exec()
+
+    def _show_context_menu(self, pos: QtCore.QPoint) -> None:
+        item = self.list_widget.itemAt(pos)
+        if not item:
+            return
+        doc = item.data(QtCore.Qt.UserRole)
+        if not isinstance(doc, DocumentItem):
+            return
+        menu = QtWidgets.QMenu(self.list_widget)
+        rerun_action = menu.addAction("Re-run OCR")
+        view_action = menu.addAction("View OCR Text")
+        chosen = menu.exec(self.list_widget.mapToGlobal(pos))
+        if chosen == rerun_action:
+            self._handle_rerun_ocr(doc)
+        elif chosen == view_action:
+            self._show_cached_ocr_text(doc)
 
     def _source_root_path(self) -> Optional[Path]:
         source_root = settings_store.get_source_root()
@@ -347,7 +406,7 @@ class RenameMoveTab(QtWidgets.QWidget):
         self._suggest_cache[key] = suggested
         return suggested
 
-    def _load_cached_ocr_text(self, doc: DocumentItem, fingerprint: str) -> str:
+    def _load_cached_ocr_text(self, doc: DocumentItem, fingerprint: str, max_pages: int = ocr_status_utils.OCR_STATUS_PAGES) -> str:
         path = Path(doc.source_path)
         if not path.exists() or path.suffix.lower() != ".pdf":
             return ""
@@ -357,7 +416,7 @@ class RenameMoveTab(QtWidgets.QWidget):
         try:
             return ocr_cache_store.get_cached_text(
                 str(path),
-                max_pages=ocr_suggestion_service.OCR_MAX_PAGES,
+                max_pages=max_pages,
                 fingerprint=effective_fp,
             )
         except Exception as exc:  # noqa: BLE001
@@ -381,7 +440,7 @@ class RenameMoveTab(QtWidgets.QWidget):
             fingerprint = ocr_cache_store.compute_fingerprint(path)
         except Exception:
             fingerprint = ""
-        cached_text = self._load_cached_ocr_text(doc, fingerprint)
+        cached_text = self._load_cached_ocr_text(doc, fingerprint, max_pages=ocr_suggestion_service.OCR_MAX_PAGES)
         if not cached_text:
             return
         ocr_names = ocr_suggestion_service.build_ocr_suggestions(
@@ -396,9 +455,15 @@ class RenameMoveTab(QtWidgets.QWidget):
 
     def _get_suggestions_for_doc(self, doc: DocumentItem) -> List[str]:
         key = self._doc_key(doc)
+        status = ocr_status_utils.get_ocr_status(Path(doc.source_path))
         cached_result = self._suggestions_map.get(key)
-        if cached_result and OCR_PENDING_TEXT not in cached_result:
-            return cached_result
+        if cached_result:
+            if OCR_PENDING_TEXT not in cached_result:
+                return cached_result
+            if status != "pending":
+                self._suggestions_map.pop(key, None)
+        if self._ocr_suggestions.get(key) == [OCR_PENDING_TEXT] and status != "pending":
+            self._ocr_suggestions.pop(key, None)
         suggestions: List[str] = []
         fallback_stem = self._build_fallback_stem(doc, self.folder_dropdown.currentText() or "")
         learn_keys = []
@@ -421,7 +486,7 @@ class RenameMoveTab(QtWidgets.QWidget):
                 fingerprint = ocr_cache_store.compute_fingerprint(Path(doc.source_path))
             except Exception:
                 fingerprint = ""
-            cached_text = self._load_cached_ocr_text(doc, fingerprint)
+            cached_text = self._load_cached_ocr_text(doc, fingerprint, max_pages=ocr_suggestion_service.OCR_MAX_PAGES)
             if cached_text:
                 ocr_names = ocr_suggestion_service.build_ocr_suggestions(cached_text, fallback_stem)
                 ocr_vals = [self._normalize_suggestion(s) for s in ocr_names if s]
@@ -430,7 +495,7 @@ class RenameMoveTab(QtWidgets.QWidget):
                     self._ocr_fingerprints[key] = fingerprint
             else:
                 ocr_vals = self._ocr_suggestions.get(key, [])
-                if not ocr_vals:
+                if status == "pending" and not ocr_vals:
                     ocr_vals = [OCR_PENDING_TEXT]
                     self._ocr_suggestions[key] = [OCR_PENDING_TEXT]
         suggestions.extend(ocr_vals)
@@ -473,6 +538,12 @@ class RenameMoveTab(QtWidgets.QWidget):
 
     def _populate_suggestions_ui(self, doc: DocumentItem) -> None:
         key = self._doc_key(doc)
+        status = ocr_status_utils.get_ocr_status(Path(doc.source_path))
+        badge = ocr_status_utils.format_ocr_badge(status)
+        label = "Suggested Filenames"
+        if badge:
+            label = f"{label} - {badge}"
+        self.suggestions_label.setText(label)
         suggestions = self._get_suggestions_for_doc(doc)
         self._programmatic_update = True
         self.suggestions_list.clear()
@@ -765,10 +836,17 @@ class RenameMoveTab(QtWidgets.QWidget):
         with QtCore.QSignalBlocker(self.list_widget):
             self.list_widget.clear()
             for idx, doc in enumerate(visible_docs):
-                item = QtWidgets.QListWidgetItem(f"{doc.display_name} ({doc.page_count}p)")
+                path = Path(doc.source_path)
+                status = ocr_status_utils.get_ocr_status(path)
+                badge = ocr_status_utils.format_ocr_badge(status)
+                label = f"{doc.display_name} ({doc.page_count}p)"
+                if badge:
+                    label = f"{label} - {badge}"
+                item = QtWidgets.QListWidgetItem(label)
                 item.setData(QtCore.Qt.UserRole, doc)
                 item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
                 item.setCheckState(QtCore.Qt.Unchecked)
+                item.setToolTip(ocr_status_utils.get_ocr_tooltip(path))
                 self.list_widget.addItem(item)
                 if prev_path and str(Path(doc.source_path).resolve()) == prev_path:
                     restore_index = idx
