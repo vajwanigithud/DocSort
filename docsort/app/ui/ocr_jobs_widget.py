@@ -122,7 +122,11 @@ class OcrJobsWidget(QtWidgets.QWidget):
             file_path = str(job.get("file_path") or "")
             status = str(job.get("status") or "")
             updated = str(job.get("updated_at") or "")
-            attempts = str(job.get("attempts") or "")
+            try:
+                attempts_raw = int(job.get("attempts") or 0)
+            except Exception:
+                attempts_raw = 0
+            attempts = f"{attempts_raw}/{ocr_job_store.DEFAULT_MAX_ATTEMPTS}"
             worker = str(job.get("worker_id") or "")
             error_full = str(job.get("last_error") or "")
             error = self._truncate(error_full)
@@ -163,6 +167,13 @@ class OcrJobsWidget(QtWidgets.QWidget):
         copy_error_action = menu.addAction("Copy Error")
         if not job.get("last_error"):
             copy_error_action.setEnabled(False)
+        try:
+            retry_allowed = ocr_job_store.can_retry(job, max_attempts=ocr_job_store.DEFAULT_MAX_ATTEMPTS)
+        except Exception:
+            retry_allowed = True
+        if not retry_allowed:
+            retry_action.setEnabled(False)
+            retry_action.setText("Retry OCR (max attempts reached)")
         chosen = menu.exec(self.table.mapToGlobal(pos))
         if chosen == retry_action:
             self._retry_job(job)
@@ -177,6 +188,12 @@ class OcrJobsWidget(QtWidgets.QWidget):
         path = str(job.get("file_path") or "")
         max_pages = int(job.get("max_pages") or 1)
         fingerprint = job.get("file_fingerprint")
+        try:
+            if not ocr_job_store.can_retry(job, max_attempts=ocr_job_store.DEFAULT_MAX_ATTEMPTS):
+                self._set_status("Max attempts reached; cannot retry.")
+                return
+        except Exception:
+            pass
         try:
             ocr_job_store.upsert_job(path, max_pages=max_pages, status="QUEUED", fingerprint=fingerprint, worker_id="ui")
             self._set_status("Job queued.")

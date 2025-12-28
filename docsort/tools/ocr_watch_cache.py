@@ -27,6 +27,7 @@ TEMP_SUFFIXES = {".tmp", ".temp", ".part"}
 WORKER_ID = "ocr_watch_cache"
 STALL_SWEEP_INTERVAL_SECONDS = 30
 _stall_last_sweep = 0.0
+MAX_ATTEMPTS = ocr_job_store.DEFAULT_MAX_ATTEMPTS
 
 
 def _setup_logging() -> None:
@@ -103,7 +104,6 @@ def _process_pdf(path: Path, fingerprint: Optional[str], pages: int, stats: Dict
         fp = fingerprint or ocr_cache_store.compute_fingerprint(path)
         if not fp:
             logger.debug("No fingerprint for %s; processing without cache check", path)
-        max_attempts = ocr_job_store.DEFAULT_MAX_ATTEMPTS
         try:
             existing = ocr_job_store.get_job(str(path), max_pages=ocr_status_utils.OCR_STATUS_PAGES, fingerprint=fp)
         except Exception as exc:  # noqa: BLE001
@@ -111,15 +111,16 @@ def _process_pdf(path: Path, fingerprint: Optional[str], pages: int, stats: Dict
             existing = None
         if existing and existing.get("attempts") is not None:
             try:
-                if not ocr_job_store.can_retry(existing, max_attempts=max_attempts):
+                if not ocr_job_store.can_retry(existing, max_attempts=MAX_ATTEMPTS):
                     try:
                         ocr_job_store.upsert_job(
                             str(path),
                             max_pages=ocr_status_utils.OCR_STATUS_PAGES,
                             status="FAILED",
                             fingerprint=fp,
-                            last_error=f"Max attempts exceeded ({max_attempts})",
+                            last_error=f"Max attempts exceeded ({MAX_ATTEMPTS})",
                             worker_id=WORKER_ID,
+                            max_attempts=MAX_ATTEMPTS,
                         )
                     except Exception as exc:  # noqa: BLE001
                         logger.debug("Failed to mark OCR job max-attempts for %s: %s", path, exc)
@@ -143,6 +144,7 @@ def _process_pdf(path: Path, fingerprint: Optional[str], pages: int, stats: Dict
                     status="DONE",
                     fingerprint=fp,
                     worker_id=WORKER_ID,
+                    max_attempts=MAX_ATTEMPTS,
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.debug("Failed to mark cached OCR job for %s: %s", path, exc)
@@ -157,6 +159,7 @@ def _process_pdf(path: Path, fingerprint: Optional[str], pages: int, stats: Dict
                         status="RUNNING",
                         fingerprint=fp,
                         worker_id=WORKER_ID,
+                        max_attempts=MAX_ATTEMPTS,
                     )
                 except Exception as exc:  # noqa: BLE001
                     logger.debug("Failed to mark OCR job running for %s: %s", path, exc)
@@ -171,6 +174,7 @@ def _process_pdf(path: Path, fingerprint: Optional[str], pages: int, stats: Dict
                         status="DONE",
                         fingerprint=fp,
                         worker_id=WORKER_ID,
+                        max_attempts=MAX_ATTEMPTS,
                     )
                 except Exception as exc:  # noqa: BLE001
                     logger.debug("Failed to mark OCR job done for %s: %s", path, exc)
@@ -185,6 +189,7 @@ def _process_pdf(path: Path, fingerprint: Optional[str], pages: int, stats: Dict
                         fingerprint=fp,
                         last_error=str(exc)[:500],
                         worker_id=WORKER_ID,
+                        max_attempts=MAX_ATTEMPTS,
                     )
                 except Exception as exc:  # noqa: BLE001
                     logger.debug("Failed to mark OCR job failed for %s: %s", path, exc)
@@ -206,6 +211,7 @@ def _initial_scan(folder: Path, pages: int) -> Dict[Path, str]:
                 status="QUEUED",
                 fingerprint=fp,
                 worker_id=WORKER_ID,
+                max_attempts=MAX_ATTEMPTS,
             )
         except Exception as exc:  # noqa: BLE001
             logger.debug("Failed to queue OCR job for %s: %s", pdf, exc)
@@ -235,6 +241,7 @@ def _poll_loop(folder: Path, pages: int, poll_seconds: float, seen: Dict[Path, s
                     status="QUEUED",
                     fingerprint=fp,
                     worker_id=WORKER_ID,
+                    max_attempts=MAX_ATTEMPTS,
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.debug("Failed to queue OCR job for %s: %s", path, exc)
@@ -274,6 +281,7 @@ def _watchdog_loop(folder: Path, pages: int, poll_seconds: float, seen: Dict[Pat
                     status="QUEUED",
                     fingerprint=fp,
                     worker_id=WORKER_ID,
+                    max_attempts=MAX_ATTEMPTS,
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.debug("Failed to queue OCR job for %s: %s", path, exc)
