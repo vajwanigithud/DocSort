@@ -13,7 +13,7 @@ from docsort.app.services import move_service, naming_service, training_store, u
 from docsort.app.services import ocr_suggestion_service
 from docsort.app.services.pdf_utils import detect_doc_fields_from_pdf
 from docsort.app.services.folder_service import FolderService
-from docsort.app.storage import settings_store, done_log_store, suggestion_memory_store, ocr_cache_store
+from docsort.app.storage import settings_store, done_log_store, suggestion_memory_store, ocr_cache_store, ocr_job_store
 from docsort.app.ui import ocr_status_utils
 from docsort.app.ui.pdf_preview_widget import PdfPreviewWidget
 from docsort.app.ui.move_worker import MoveWorker
@@ -200,10 +200,11 @@ class RenameMoveTab(QtWidgets.QWidget):
 
     def _handle_rerun_ocr(self, doc: DocumentItem) -> None:
         path = Path(doc.source_path)
+        fingerprint = None
         try:
             fingerprint = ocr_cache_store.compute_fingerprint(path)
-        except Exception:
-            fingerprint = ""
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Failed to compute OCR fingerprint for %s: %s", path, exc)
         try:
             ocr_cache_store.delete_cached_text(
                 str(path),
@@ -212,6 +213,16 @@ class RenameMoveTab(QtWidgets.QWidget):
             )
         except Exception as exc:  # noqa: BLE001
             logger.debug("Failed to clear OCR cache for %s: %s", path, exc)
+        try:
+            ocr_job_store.upsert_job(
+                str(path),
+                max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                status="QUEUED",
+                fingerprint=fingerprint or None,
+                worker_id="ui",
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Failed to queue OCR job for %s: %s", path, exc)
         key = self._doc_key(doc)
         self._ocr_suggestions.pop(key, None)
         self._ocr_fingerprints.pop(key, None)

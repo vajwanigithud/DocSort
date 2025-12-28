@@ -13,12 +13,14 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from docsort.app.services.ocr_suggestion_service import get_text_for_pdf
-from docsort.app.storage import ocr_cache_store, settings_store
+from docsort.app.storage import ocr_cache_store, ocr_job_store, settings_store
+from docsort.app.ui import ocr_status_utils
 
 logger = logging.getLogger(__name__)
 THROTTLE_SECONDS = 1.0
 PROCESS_LOCK = threading.Lock()
 TEMP_SUFFIXES = {".tmp", ".temp", ".part"}
+WORKER_ID = "ocr_watch_cache"
 
 
 def _setup_logging() -> None:
@@ -89,16 +91,59 @@ def _process_pdf(path: Path, fingerprint: Optional[str], pages: int, stats: Dict
                 cached_hit = True
         except Exception as exc:  # noqa: BLE001
             logger.debug("Cache check failed for %s: %s", path, exc)
+        if cached_hit:
+            try:
+                ocr_job_store.upsert_job(
+                    str(path),
+                    max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                    status="DONE",
+                    fingerprint=fp,
+                    worker_id=WORKER_ID,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("Failed to mark cached OCR job for %s: %s", path, exc)
+            return
         if not cached_hit:
             start = time.time()
             try:
+                try:
+                    ocr_job_store.upsert_job(
+                        str(path),
+                        max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                        status="RUNNING",
+                        fingerprint=fp,
+                        worker_id=WORKER_ID,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug("Failed to mark OCR job running for %s: %s", path, exc)
                 get_text_for_pdf(str(path), max_pages=pages)
                 elapsed = time.time() - start
                 stats["ocred"] += 1
                 logger.info("OCR cached: %s (%.1fs)", path.name, elapsed)
+                try:
+                    ocr_job_store.upsert_job(
+                        str(path),
+                        max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                        status="DONE",
+                        fingerprint=fp,
+                        worker_id=WORKER_ID,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug("Failed to mark OCR job done for %s: %s", path, exc)
             except Exception as exc:  # noqa: BLE001
                 stats["errors"] += 1
                 logger.warning("ERROR OCRing %s err=%s", path.name, exc)
+                try:
+                    ocr_job_store.upsert_job(
+                        str(path),
+                        max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                        status="FAILED",
+                        fingerprint=fp,
+                        last_error=str(exc)[:500],
+                        worker_id=WORKER_ID,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug("Failed to mark OCR job failed for %s: %s", path, exc)
         time.sleep(THROTTLE_SECONDS)
 
 
@@ -110,6 +155,16 @@ def _initial_scan(folder: Path, pages: int) -> Dict[Path, str]:
     stats = {"ocred": 0, "skipped": 0, "errors": 0}
     for idx, (pdf, fp) in enumerate(sorted(pdfs.items()), start=1):
         logger.info("[%s/%s] processing %s", idx, total, pdf.name)
+        try:
+            ocr_job_store.upsert_job(
+                str(pdf),
+                max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                status="QUEUED",
+                fingerprint=fp,
+                worker_id=WORKER_ID,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Failed to queue OCR job for %s: %s", pdf, exc)
         _process_pdf(pdf, fp, pages, stats)
         seen[pdf] = fp
     logger.info(
@@ -129,6 +184,16 @@ def _poll_loop(folder: Path, pages: int, poll_seconds: float, seen: Dict[Path, s
             prior_fp = seen.get(path)
             if prior_fp == fp and fp and ocr_cache_store.is_cached(str(path), max_pages=pages, fingerprint=fp):
                 continue
+            try:
+                ocr_job_store.upsert_job(
+                    str(path),
+                    max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                    status="QUEUED",
+                    fingerprint=fp,
+                    worker_id=WORKER_ID,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("Failed to queue OCR job for %s: %s", path, exc)
             _process_pdf(path, fp, pages, {"ocred": 0, "skipped": 0, "errors": 0})
             seen[path] = fp
         time.sleep(max(1.0, poll_seconds))
@@ -157,6 +222,16 @@ def _watchdog_loop(folder: Path, pages: int, poll_seconds: float, seen: Dict[Pat
             prior_fp = seen.get(path)
             if prior_fp == fp and fp and ocr_cache_store.is_cached(str(path), max_pages=pages, fingerprint=fp):
                 return
+            try:
+                ocr_job_store.upsert_job(
+                    str(path),
+                    max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                    status="QUEUED",
+                    fingerprint=fp,
+                    worker_id=WORKER_ID,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("Failed to queue OCR job for %s: %s", path, exc)
             _process_pdf(path, fp, pages, {"ocred": 0, "skipped": 0, "errors": 0})
             seen[path] = fp
 

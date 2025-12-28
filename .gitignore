@@ -12,3 +12,5 @@ docsort/app/storage/done_log.jsonl
 docsort/app/storage/training_events.json
 docsort/app/storage/ocr_cache.sqlite
 docsort/app/storage/__pycache__/settings_store.cpython-313.pyc
+docsort/app/storage/*.sqlite-wal
+docsort/app/storage/*.sqlite-shm

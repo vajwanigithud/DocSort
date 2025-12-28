@@ -6,7 +6,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from docsort.app.core.state import AppState, DocumentItem
 from docsort.app.services import pdf_utils, routing_service
-from docsort.app.storage import ocr_cache_store, settings_store, split_completion_store
+from docsort.app.storage import ocr_cache_store, ocr_job_store, settings_store, split_completion_store
 from docsort.app.ui import ocr_status_utils
 from docsort.app.ui.pdf_preview_widget import PdfPreviewWidget
 
@@ -249,8 +249,12 @@ class ScannedTab(QtWidgets.QWidget):
             return ""
 
     def _handle_rerun_ocr(self, path: Path) -> None:
+        fingerprint = None
         try:
             fingerprint = ocr_cache_store.compute_fingerprint(path)
+        except Exception as exc:  # noqa: BLE001
+            self.log.debug("Failed to compute OCR fingerprint for %s: %s", path, exc)
+        try:
             ocr_cache_store.delete_cached_text(
                 str(path),
                 max_pages=ocr_status_utils.OCR_STATUS_PAGES,
@@ -258,6 +262,16 @@ class ScannedTab(QtWidgets.QWidget):
             )
         except Exception as exc:  # noqa: BLE001
             self.log.debug("Failed to clear OCR cache for %s: %s", path, exc)
+        try:
+            ocr_job_store.upsert_job(
+                str(path),
+                max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                status="QUEUED",
+                fingerprint=fingerprint or None,
+                worker_id="ui",
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.log.debug("Failed to queue OCR job for %s: %s", path, exc)
         self.refresh()
 
     def _show_cached_ocr_text(self, path: Path) -> None:
