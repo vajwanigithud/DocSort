@@ -8,7 +8,7 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Iterable, List, Tuple
 
-from docsort.app.services import invoice_field_extractor, naming_service, pdf_utils, ocr_input_cache
+from docsort.app.services import naming_service, pdf_utils, ocr_input_cache
 from docsort.app.storage import ocr_cache_store
 
 try:
@@ -27,6 +27,8 @@ _logged_ocr_unavailable = False
 OCR_MAX_PAGES = 2
 _WEAK_TEXT_CHARS = 120
 _WEAK_TEXT_WORDS = 18
+_OCR_DPI = 300
+_OCR_PSMS = [6, 11, 4]
 
 
 def _try_import_cv2():
@@ -131,8 +133,8 @@ def _text_quality_score(text: str) -> float:
     alpha_chars = sum(1 for c in text if c.isalpha())
     total_chars = len(text)
     alpha_ratio = alpha_chars / total_chars if total_chars else 0.0
-    invoice_tokens = ["invoice", "tax invoice", "trn", "total", "date", "invoice no", "inv no"]
-    token_hits = sum(1 for tok in invoice_tokens if tok in lower)
+    keyword_tokens = ["invoice", "receipt", "estimate", "appointment", "order", "po", "reference", "total", "date"]
+    token_hits = sum(1 for tok in keyword_tokens if tok in lower)
     return (word_count * 1.0) + (alpha_ratio * 40.0) + (token_hits * 6.0)
 
 
@@ -198,7 +200,7 @@ def _try_ocr(path: Path, max_pages: int) -> str:
         return ""
     _configure_tesseract_command(pytesseract)
 
-    def _ocr_page(doc_obj, page_idx: int, scale: float, psm: int) -> Tuple[str, str]:
+    def _ocr_page(doc_obj, page_idx: int, scale: float, psm: int) -> Tuple[str, str, float, int, int]:
         try:
             if not Image:
                 raise RuntimeError("PIL not available")
@@ -214,11 +216,13 @@ def _try_ocr(path: Path, max_pages: int) -> str:
             processed_image = processed_image.convert("L")
             lang_candidates = ["eng+osd", "eng"]
             last_lang = lang_candidates[-1]
+            best_local = ""
             for lang_candidate in lang_candidates:
                 try:
                     config = f"--oem 3 --psm {psm}"
                     text = pytesseract.image_to_string(processed_image, lang=lang_candidate, config=config)
-                    return text, lang_candidate
+                    best_local = text
+                    break
                 except Exception as tess_exc:  # noqa: BLE001
                     last_lang = lang_candidate
                     logger.debug(
@@ -230,10 +234,14 @@ def _try_ocr(path: Path, max_pages: int) -> str:
                         lang_candidate,
                         tess_exc,
                     )
-            return "", last_lang
+            text = best_local
+            score = _text_quality_score(text)
+            words = len(text.split())
+            chars = len(text)
+            return text, last_lang, score, words, chars
         except Exception as exc:  # noqa: BLE001
             logger.debug("OCR page render failed p=%s scale=%s for %s: %s", page_idx, scale, path, exc)
-            return "", ""
+            return "", "", 0.0, 0, 0
 
     texts: List[str] = []
 
@@ -242,27 +250,23 @@ def _try_ocr(path: Path, max_pages: int) -> str:
 
     def _ocr_page_with_retries(doc_obj, page_idx: int) -> str:
         scale_psm_plan = [
-            (300 / 72, [11, 6, 4]),
-            (2.5, [11, 6, 4]),
+            (_OCR_DPI / 72, list(_OCR_PSMS)),
         ]
         best_text = ""
         best_score = -1.0
         for scale_idx, (scale, psms) in enumerate(scale_psm_plan):
             for psm in psms:
-                text, lang_used = _ocr_page(doc_obj, page_idx, scale, psm)
-                score = _text_quality_score(text)
-                chars = len(text)
-                words = len(text.split())
+                text, lang_used, score, words, chars = _ocr_page(doc_obj, page_idx, scale, psm)
                 is_retry = _is_weak_text(text)
                 is_best = score > best_score
                 if is_best:
                     best_text = text
                     best_score = score
                 logger.info(
-                    "OCR attempt path=%s page=%s scale=%.2f psm=%s lang=%s retry=%s chars=%s words=%s score=%.2f best=%s",
+                    "OCR attempt path=%s page=%s dpi=%s psm=%s lang=%s retry=%s chars=%s words=%s score=%.2f best=%s",
                     path,
                     page_idx,
-                    scale,
+                    int(scale * 72),
                     psm,
                     lang_used,
                     is_retry,
@@ -411,42 +415,121 @@ def _format_amount(currency: str, amount: str) -> str:
     return f"{cur}-{amount}" if cur else amount
 
 
-def _build_invoice_suggestions(fields: invoice_field_extractor.InvoiceFields, fallback_stem: str) -> List[str]:
-    type_label_map = {
-        "invoice": "Invoice",
-        "receipt": "Receipt",
-        "estimate": "Estimate",
-        "quotation": "Estimate",
-        "document": "",
+def _extract_generic_fields(text: str) -> dict:
+    lines = [ln.strip() for ln in (text or "").replace(" ", " ").splitlines() if ln.strip()]
+    lower = (text or "").lower()
+
+    def find_date() -> str:
+        date_patterns = [
+            r"\b\d{4}-\d{2}-\d{2}\b",
+            r"\b\d{2}[/-]\d{2}[/-]\d{4}\b",
+            r"\b\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}\b",
+        ]
+        for line in lines:
+            if "date" in line.lower():
+                for pat in date_patterns:
+                    m = re.search(pat, line)
+                    if m:
+                        return m.group(0)
+        for pat in date_patterns:
+            m = re.search(pat, text or "")
+            if m:
+                return m.group(0)
+        return ""
+
+    def find_primary_id() -> str:
+        id_patterns = [
+            r"(invoice|inv|reference|ref|appointment|po|order|ticket)[^\w]{0,10}([A-Z0-9][A-Z0-9\-\/]{2,40})",
+            r"\b(ID|No\.?|Number|Ref\.?)[:\s\-]{0,4}([A-Z0-9][A-Z0-9\-\/]{2,40})",
+        ]
+        for pat in id_patterns:
+            m = re.search(pat, text or "", re.IGNORECASE)
+            if m:
+                candidate = m.group(2)
+                if candidate and not re.fullmatch(r"0+", candidate):
+                    return candidate
+        return ""
+
+    def find_party() -> str:
+        org_tokens = {"llc", "ltd", "trading", "fze", "inc", "pty", "plc", "corp", "company"}
+        best = ""
+        best_score = -1.0
+        for line in lines[:12]:
+            cleaned = re.sub(r"[^\w\s\-\&\.\,]", "", line).strip()
+            if not cleaned:
+                continue
+            letters = sum(1 for c in cleaned if c.isalpha())
+            upper_ratio = (sum(1 for c in cleaned if c.isupper()) / letters) if letters else 0
+            token_count = len(cleaned.split())
+            score = len(cleaned) + upper_ratio * 10 + token_count * 1.5
+            lower_line = cleaned.lower()
+            if any(tok in lower_line for tok in org_tokens):
+                score += 8
+            if score > best_score:
+                best_score = score
+                best = cleaned
+        return best
+
+    def find_amount() -> tuple[str, str]:
+        amt_pat = r"(grand\s*total|total\s*amount|amount\s*due|balance\s*due|total)\s*[:\-]?\s*([A-Z]{0,4})?\s*([\$€£]?\s*[0-9][0-9\.,]*)"
+        matches = list(re.finditer(amt_pat, text or "", flags=re.IGNORECASE))
+        if not matches:
+            return "", ""
+        m = matches[-1]
+        cur = (m.group(2) or "").strip()
+        amt = (m.group(3) or "").replace(",", "").replace(" ", "")
+        amt = re.sub(r"[^\d\.]", "", amt)
+        return cur, amt
+
+    def find_doc_tag() -> str:
+        if "invoice" in lower:
+            return "Invoice"
+        if "receipt" in lower:
+            return "Receipt"
+        if "appointment" in lower:
+            return "Appointment"
+        if "purchase order" in lower or " po" in lower or "po " in lower or "order" in lower:
+            return "Order"
+        return "Document"
+
+    cur, amt = find_amount()
+    return {
+        "date": find_date(),
+        "primary_id": find_primary_id(),
+        "party": find_party(),
+        "currency": cur,
+        "amount": amt,
+        "doc_tag": find_doc_tag(),
     }
-    type_label = type_label_map.get((fields.doc_type or "").lower().strip(), "")
-    num_label = f"{type_label}-{fields.invoice_number}" if type_label and fields.invoice_number else fields.invoice_number or type_label
 
-    vendor = fields.vendor
-    number = fields.invoice_number
-    date = fields.invoice_date
-    customer = fields.customer
-    amount_token = _format_amount(fields.currency, fields.total_amount)
 
-    candidates = [
-        _format_filename([date, vendor, type_label, number, customer, amount_token]),
-        _format_filename([vendor, type_label, number, date, customer]),
-        _format_filename([vendor, type_label, number, date, amount_token]),
-        _format_filename([vendor, date, num_label]),
-        _format_filename([num_label, date, vendor]),
+def _build_generic_suggestions(text: str, fallback_stem: str) -> List[str]:
+    fields = _extract_generic_fields(text)
+    amount_token = _format_amount(fields["currency"], fields["amount"])
+    party = fields["party"]
+    doc_tag = fields["doc_tag"]
+    primary_id = fields["primary_id"]
+    date = fields["date"]
+
+    templates = [
+        [date, party, doc_tag, primary_id, amount_token],
+        [party, doc_tag, primary_id, date],
+        [doc_tag, primary_id, party, date],
+        [party, primary_id],
+        [date, doc_tag, party],
     ]
-    deduped = _dedupe_preserve(candidates)
+    suggestions = [_format_filename(parts) for parts in templates]
+    suggestions = _dedupe_preserve(suggestions)
 
-    base_fallback = _format_filename([fallback_stem]) if fallback_stem else "Document.pdf"
+    base_fallback = _format_filename([fallback_stem or doc_tag or "Document"])
     filler_idx = 1
-    while len(deduped) < 5:
-        filler_name = base_fallback if filler_idx == 1 else _format_filename([fallback_stem, str(filler_idx)])
+    while len(suggestions) < 5:
+        filler = base_fallback if filler_idx == 1 else _format_filename([fallback_stem or doc_tag or "Document", str(filler_idx)])
         filler_idx += 1
-        if filler_name.lower() in (n.lower() for n in deduped):
+        if filler.lower() in (s.lower() for s in suggestions):
             continue
-        deduped.append(filler_name)
-    return deduped[:5]
-
+        suggestions.append(filler)
+    return suggestions[:5]
 
 def _self_test_cache_read_first() -> bool:
     """Lightweight sanity check: sqlite cache win even if cache_pdf_for_ocr returns None."""
@@ -482,18 +565,7 @@ def _self_test_cache_read_first() -> bool:
 def build_ocr_suggestions(text: str, fallback_stem: str) -> List[str]:
     if not text:
         return []
-    fields = invoice_field_extractor.extract_invoice_fields(text)
-    logger.debug(
-        "OCR invoice fields vendor=%s number=%s date=%s customer=%s amount=%s doc_type=%s score=%.2f",
-        fields.vendor,
-        fields.invoice_number,
-        fields.invoice_date,
-        fields.customer,
-        _format_amount(fields.currency, fields.total_amount),
-        fields.doc_type,
-        fields.score,
-    )
-    return _build_invoice_suggestions(fields, fallback_stem)
+    return _build_generic_suggestions(text, fallback_stem)
 
 
 def fingerprint_text(text: str) -> str:
