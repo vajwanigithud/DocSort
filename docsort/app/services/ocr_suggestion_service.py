@@ -6,9 +6,10 @@ import shutil
 import time
 from collections import OrderedDict
 from pathlib import Path
-from typing import Any, List, Tuple
+from typing import Any, Iterable, List, Tuple
 
 from docsort.app.services import naming_service, pdf_utils, ocr_input_cache
+from docsort.app.services import invoice_field_extractor
 from docsort.app.storage import ocr_cache_store
 
 try:
@@ -27,73 +28,23 @@ _logged_ocr_unavailable = False
 OCR_MAX_PAGES = 2
 _WEAK_TEXT_CHARS = 120
 _WEAK_TEXT_WORDS = 18
+MAX_FILENAME_LEN = 80
 
 
-def _try_import_cv2():
-    try:
-        import cv2  # type: ignore
-        import numpy as np  # type: ignore
-
-        return cv2, np
-    except Exception:
-        return None, None
-
-
-def _deskew_binary(image_gray, cv2, np):
-    coords = cv2.findNonZero(255 - image_gray)
-    if coords is None or coords.size == 0:
-        return image_gray
-    angle = cv2.minAreaRect(coords)[-1]
-    if angle < -45:
-        angle = -(90 + angle)
-    else:
-        angle = -angle
-    if abs(angle) < 0.2:
-        return image_gray
-    h, w = image_gray.shape[:2]
-    center = (w // 2, h // 2)
-    m = cv2.getRotationMatrix2D(center, angle, 1.0)
-    return cv2.warpAffine(image_gray, m, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
-
-
-def _preprocess_with_cv2(pil_image: Any) -> Any:
-    cv2, np = _try_import_cv2()
-    if not cv2 or not np:
-        raise RuntimeError("cv2 not available")
+def _preprocess_lightweight(pil_image: Any) -> Any:
     if not Image:
-        raise RuntimeError("PIL not available")
-    np_img = np.array(pil_image)
-    if np_img.ndim == 3 and np_img.shape[2] >= 3:
-        gray = cv2.cvtColor(np_img, cv2.COLOR_RGB2GRAY)
-    else:
-        gray = np_img if np_img.ndim == 2 else np_img[:, :, 0]
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    enhanced = clahe.apply(gray)
+        return pil_image
+    gray = pil_image.convert("L")
+    auto = ImageOps.autocontrast(gray)
     try:
-        denoised = cv2.fastNlMeansDenoising(enhanced, None, h=8, templateWindowSize=7, searchWindowSize=21)
+        sharpened = auto.filter(ImageFilter.UnsharpMask(radius=1, percent=120, threshold=3))
     except Exception:
-        denoised = cv2.GaussianBlur(enhanced, (3, 3), 0)
+        sharpened = auto
     try:
-        _, thresh = cv2.threshold(denoised, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        threshold = sharpened.point(lambda p: 255 if p > 180 else 0)
     except Exception:
-        thresh = cv2.adaptiveThreshold(
-            denoised,
-            255,
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY,
-            35,
-            8,
-        )
-    try:
-        deskewed = _deskew_binary(thresh, cv2, np)
-    except Exception:
-        deskewed = thresh
-    blurred = cv2.GaussianBlur(deskewed, (0, 0), sigmaX=1.0)
-    sharpened = cv2.addWeighted(deskewed, 1.5, blurred, -0.5, 0)
-    kernel = np.ones((2, 2), np.uint8)
-    cleaned = cv2.morphologyEx(sharpened, cv2.MORPH_OPEN, kernel, iterations=1)
-    cleaned = np.clip(cleaned, 0, 255).astype("uint8")
-    return Image.fromarray(cleaned)
+        threshold = sharpened
+    return threshold
 
 
 def _preprocess_with_pil_only(pil_image: Any) -> Any:
@@ -115,7 +66,7 @@ def _preprocess_with_pil_only(pil_image: Any) -> Any:
 
 def preprocess_for_ocr(pil_image: Any) -> Any:
     try:
-        return _preprocess_with_cv2(pil_image)
+        return _preprocess_lightweight(pil_image)
     except Exception:
         try:
             return _preprocess_with_pil_only(pil_image)
@@ -351,47 +302,33 @@ def get_text_for_pdf(path: str, max_pages: int = 1) -> str:
     return text or ""
 
 
-def build_ocr_suggestions(text: str, fallback_stem: str) -> List[str]:
-    suggestions: List[str] = []
-    if not text:
-        return suggestions
-    text_lower = text.lower()
+def _normalize_component(text: str) -> str:
+    cleaned = text or ""
+    cleaned = re.sub(r"[^\w\-\.\s]", "", cleaned)
+    cleaned = re.sub(r"\s+", "_", cleaned)
+    cleaned = re.sub(r"_+", "_", cleaned).strip("_")
+    return cleaned
 
-    def find_doc_type() -> str:
-        for token in ["invoice", "tax invoice", "estimate", "receipt"]:
-            if token in text_lower:
-                return token
-        return ""
 
-    def find_number() -> str:
-        patterns = [
-            r"(?:invoice|inv)[^\w]{0,15}([A-Z0-9][A-Z0-9\-]{2,20})",
-            r"(?:estimate)[^\w]{0,15}([A-Z0-9][A-Z0-9\-]{2,20})",
-            r"(?:receipt)[^\w]{0,15}([A-Z0-9][A-Z0-9\-]{2,20})",
-            r"(?:no\.?|number|#)[^\w]{0,10}([A-Z0-9][A-Z0-9\-]{2,20})",
-        ]
-        for pat in patterns:
-            m = re.search(pat, text_lower, re.IGNORECASE)
-            if m:
-                candidate = m.group(1)
-                if candidate and not re.fullmatch(r"0+", candidate):
-                    return candidate
-        return ""
+def _format_filename(parts: List[str]) -> str:
+    tokens = [_normalize_component(p) for p in parts if p]
+    name = "_".join([t for t in tokens if t])
+    if not name:
+        name = "Document"
+    if not name.lower().endswith(".pdf"):
+        name = f"{name}.pdf"
+    if len(name) > MAX_FILENAME_LEN:
+        root, ext = os.path.splitext(name)
+        name = f"{root[: MAX_FILENAME_LEN - len(ext)]}{ext}"
+    name = naming_service.enforce_no_spaces(name)
+    name = re.sub(r'[<>:"/\\\\|?*]', "", name)
+    name = re.sub(r"_+", "_", name).strip("_")
+    if not name.lower().endswith(".pdf"):
+        name = f"{name}.pdf"
+    return name
 
-    def find_date() -> str:
-        patts = [
-            r"\b(\d{4}-\d{2}-\d{2})\b",
-            r"\b(\d{2}[/-]\d{2}[/-]\d{4})\b",
-            r"\b(\d{2}\.\d{2}\.\d{4})\b",
-        ]
-        for pat in patts:
-            m = re.search(pat, text)
-            if m:
-                raw = m.group(1)
-                norm = pdf_utils.normalize_date(raw) if hasattr(pdf_utils, "normalize_date") else None
-                return norm or raw
-        return ""
 
+<<<<<<< HEAD
     def find_vendor() -> str:
         lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
         if not lines:
@@ -445,14 +382,16 @@ def build_ocr_suggestions(text: str, fallback_stem: str) -> List[str]:
     suggestions.append(f"{fallback_stem}.pdf")
 
     deduped: List[str] = []
+=======
+def _dedupe_preserve(names: Iterable[str]) -> List[str]:
+>>>>>>> copilot/ocr-suggestions-hardened
     seen = set()
-    for s in suggestions:
-        clean = naming_service.enforce_no_spaces(s)
-        clean = re.sub(r'[<>:"/\\\\|?*]', "", clean)
-        if not clean.lower().endswith(".pdf"):
-            clean = f"{clean}.pdf"
-        if clean in seen:
+    deduped: List[str] = []
+    for name in names:
+        key = name.lower()
+        if key in seen:
             continue
+<<<<<<< HEAD
         seen.add(clean)
         deduped.append(clean)
     while len(deduped) < 5 and fallback_stem:
@@ -462,6 +401,84 @@ def build_ocr_suggestions(text: str, fallback_stem: str) -> List[str]:
             seen.add(candidate)
             deduped.append(candidate)
     return deduped[:5]
+=======
+        seen.add(key)
+        deduped.append(name)
+    return deduped
+>>>>>>> copilot/ocr-suggestions-hardened
+
+
+def _format_amount(currency: str, amount: str) -> str:
+    cur = (currency or "").strip().upper()
+    if cur in {"$", "USD"}:
+        cur = "USD"
+    elif cur in {"€", "EUR"}:
+        cur = "EUR"
+    elif cur in {"£", "GBP"}:
+        cur = "GBP"
+    elif cur in {"د.إ", "AED"}:
+        cur = "AED"
+    if not amount:
+        return cur
+    return f"{cur}-{amount}" if cur else amount
+
+
+def _build_invoice_suggestions(fields: invoice_field_extractor.InvoiceFields, fallback_stem: str) -> List[str]:
+    number = fields.invoice_number
+    date = fields.invoice_date
+    vendor = fields.vendor or "Invoice"
+    customer = fields.customer
+    amount_token = _format_amount(fields.currency, fields.total_amount)
+    suggestions: List[str] = []
+    if number and date:
+        suggestions.append(_format_filename([date, vendor, "Invoice", number, customer, amount_token]))
+        suggestions.append(_format_filename([vendor, "Invoice", number, date, customer]))
+        if amount_token:
+            suggestions.append(_format_filename([vendor, "Invoice", number, date, amount_token]))
+        suggestions.append(_format_filename([vendor, date, f"Invoice-{number}"]))
+        suggestions.append(_format_filename([f"Invoice-{number}", date, vendor]))
+    else:
+        if number:
+            suggestions.append(_format_filename([vendor, "Invoice", number]))
+        if date:
+            suggestions.append(_format_filename([date, vendor, "Invoice", number]))
+        suggestions.append(_format_filename([vendor, fallback_stem]))
+    return _dedupe_preserve(suggestions)
+
+
+def build_ocr_suggestions(text: str, fallback_stem: str) -> List[str]:
+    if not text:
+        return []
+    fields = invoice_field_extractor.extract_invoice_fields(text)
+    logger.debug(
+        "OCR invoice fields vendor=%s number=%s date=%s customer=%s amount=%s score=%.2f",
+        fields.vendor,
+        fields.invoice_number,
+        fields.invoice_date,
+        fields.customer,
+        _format_amount(fields.currency, fields.total_amount),
+        fields.score,
+    )
+    suggestions = _build_invoice_suggestions(fields, fallback_stem)
+    if len(suggestions) < 5:
+        base_fallbacks = [
+            _format_filename([fallback_stem]),
+            _format_filename([fields.vendor or "", fallback_stem]),
+            _format_filename([fields.vendor or "Invoice", fields.invoice_date or "", fields.invoice_number or ""]),
+        ]
+        for name in base_fallbacks:
+            if len(suggestions) >= 5:
+                break
+            if name.lower() not in [s.lower() for s in suggestions]:
+                suggestions.append(name)
+    suggestions = _dedupe_preserve(suggestions)
+    idx = 1
+    while len(suggestions) < 5:
+        filler = _format_filename([fallback_stem, str(idx)])
+        if filler.lower() not in [s.lower() for s in suggestions]:
+            suggestions.append(filler)
+        idx += 1
+    return suggestions[:5]
 
 
 def fingerprint_text(text: str) -> str:
