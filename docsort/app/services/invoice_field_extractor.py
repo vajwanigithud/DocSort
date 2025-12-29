@@ -15,6 +15,7 @@ class InvoiceFields:
     currency: str
     total_amount: str
     customer: str
+    doc_type: str
     score: float
 
 
@@ -158,6 +159,19 @@ def _extract_customer(text: str, lines: List[str]) -> str:
     return ""
 
 
+def _extract_doc_type(text: str, lines: List[str]) -> str:
+    header = " ".join(lines[:8]).lower()
+    raw_lower = (text or "").lower()
+    haystack = header or raw_lower
+    if "tax invoice" in haystack or "invoice" in haystack:
+        return "invoice"
+    if "receipt" in haystack:
+        return "receipt"
+    if "estimate" in haystack or "quotation" in haystack or "quote" in haystack:
+        return "estimate"
+    return "document"
+
+
 def extract_invoice_fields(text: str) -> InvoiceFields:
     lines = _extract_lines(text)
     flat = " ".join(lines)
@@ -166,6 +180,7 @@ def extract_invoice_fields(text: str) -> InvoiceFields:
     date_val, date_score = _extract_date(text)
     amount, currency, amt_score = _extract_amount(text)
     customer = _extract_customer(text, lines)
+    doc_type = _extract_doc_type(text, lines)
 
     score = 0.0
     if number:
@@ -179,6 +194,8 @@ def extract_invoice_fields(text: str) -> InvoiceFields:
     if customer:
         score += 5
     score += num_score + date_score + amt_score
+    if doc_type and doc_type != "document":
+        score += 3
 
     fields = InvoiceFields(
         vendor=vendor,
@@ -187,6 +204,7 @@ def extract_invoice_fields(text: str) -> InvoiceFields:
         currency=_sanitize_token(currency),
         total_amount=_sanitize_token(amount),
         customer=customer,
+        doc_type=doc_type,
         score=score,
     )
     logger.debug("Extracted invoice fields: %s", fields)
@@ -218,9 +236,17 @@ def self_test() -> None:
         Total: $88.00
         Customer John Smith
         """,
+        """
+        Blue Sky Services
+        Quotation #Q-778
+        Date 12 Mar 2025
+        Estimate Total: EUR 450.00
+        """,
     ]
+    expected_types = ["invoice", "invoice", "receipt", "estimate"]
     for idx, sample in enumerate(samples, start=1):
         fields = extract_invoice_fields(sample)
+        assert fields.doc_type == expected_types[idx - 1], f"doc_type mismatch sample {idx}: {fields.doc_type}"
         print(f"Sample {idx}: {fields}")
 
 

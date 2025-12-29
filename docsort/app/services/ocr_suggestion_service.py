@@ -365,6 +365,7 @@ def build_ocr_suggestions(text: str, fallback_stem: str) -> List[str]:
     fields = invoice_field_extractor.extract_invoice_fields(text)
     logger.debug("Invoice field extraction score=%.2f fields=%s", fields.score, fields)
 
+    doc_type = (fields.doc_type or "").lower().strip()
     vendor = _sanitize(fields.vendor)
     number = _sanitize(fields.invoice_number)
     date = _sanitize(fields.invoice_date)
@@ -376,6 +377,16 @@ def build_ocr_suggestions(text: str, fallback_stem: str) -> List[str]:
             amount_part = f"{fields.currency}-{fields.total_amount}"
     amount_part = _sanitize(amount_part)
 
+    type_label_map = {
+        "invoice": "Invoice",
+        "receipt": "Receipt",
+        "estimate": "Estimate",
+        "quotation": "Estimate",
+        "document": "",
+    }
+    type_label = type_label_map.get(doc_type, "")
+    num_label = f"{type_label}-{number}" if type_label and number else number or type_label
+
     def _build(parts: List[str]) -> str:
         filtered = [p for p in parts if p]
         name = "_".join(filtered) if filtered else fallback_stem
@@ -385,11 +396,11 @@ def build_ocr_suggestions(text: str, fallback_stem: str) -> List[str]:
         return name[:80]
 
     candidates = [
-        _build([date, vendor, "Invoice", number, customer, amount_part]),
-        _build([vendor, "Invoice", number, date, customer]),
-        _build([vendor, "Invoice", number, date, amount_part]),
-        _build([vendor, date, f"Invoice-{number}" if number else "Invoice"]),
-        _build([f"Invoice-{number}" if number else "Invoice", date, vendor]),
+        _build([date, vendor, type_label, number, customer, amount_part]),
+        _build([vendor, type_label, number, date, customer]),
+        _build([vendor, type_label, number, date, amount_part]),
+        _build([vendor, date, num_label]),
+        _build([num_label, date, vendor]),
     ]
 
     deduped: List[str] = []
