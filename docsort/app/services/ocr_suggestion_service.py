@@ -8,7 +8,7 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any, List, Tuple
 
-from docsort.app.services import naming_service, pdf_utils, ocr_input_cache
+from docsort.app.services import invoice_field_extractor, naming_service, pdf_utils, ocr_input_cache
 from docsort.app.storage import ocr_cache_store
 
 try:
@@ -355,112 +355,64 @@ def build_ocr_suggestions(text: str, fallback_stem: str) -> List[str]:
     suggestions: List[str] = []
     if not text:
         return suggestions
-    text_lower = text.lower()
 
-    def find_doc_type() -> str:
-        for token in ["invoice", "tax invoice", "estimate", "receipt"]:
-            if token in text_lower:
-                return token
-        return ""
+    def _sanitize(token: str) -> str:
+        cleaned = re.sub(r'[<>:"/\\\\|?*]', "", token or "")
+        cleaned = re.sub(r"\s+", "_", cleaned).strip("_")
+        cleaned = re.sub(r"_+", "_", cleaned)
+        return cleaned[:80]
 
-    def find_number() -> str:
-        patterns = [
-            r"(?:invoice|inv)[^\w]{0,15}([A-Z0-9][A-Z0-9\-]{2,20})",
-            r"(?:estimate)[^\w]{0,15}([A-Z0-9][A-Z0-9\-]{2,20})",
-            r"(?:receipt)[^\w]{0,15}([A-Z0-9][A-Z0-9\-]{2,20})",
-            r"(?:no\.?|number|#)[^\w]{0,10}([A-Z0-9][A-Z0-9\-]{2,20})",
-        ]
-        for pat in patterns:
-            m = re.search(pat, text_lower, re.IGNORECASE)
-            if m:
-                candidate = m.group(1)
-                if candidate and not re.fullmatch(r"0+", candidate):
-                    return candidate
-        return ""
+    fields = invoice_field_extractor.extract_invoice_fields(text)
+    logger.debug("Invoice field extraction score=%.2f fields=%s", fields.score, fields)
 
-    def find_date() -> str:
-        patts = [
-            r"\b(\d{4}-\d{2}-\d{2})\b",
-            r"\b(\d{2}[/-]\d{2}[/-]\d{4})\b",
-            r"\b(\d{2}\.\d{2}\.\d{4})\b",
-        ]
-        for pat in patts:
-            m = re.search(pat, text)
-            if m:
-                raw = m.group(1)
-                norm = pdf_utils.normalize_date(raw) if hasattr(pdf_utils, "normalize_date") else None
-                return norm or raw
-        return ""
+    vendor = _sanitize(fields.vendor)
+    number = _sanitize(fields.invoice_number)
+    date = _sanitize(fields.invoice_date)
+    customer = _sanitize(fields.customer)
+    amount_part = ""
+    if fields.total_amount:
+        amount_part = fields.total_amount
+        if fields.currency:
+            amount_part = f"{fields.currency}-{fields.total_amount}"
+    amount_part = _sanitize(amount_part)
 
-    def find_vendor() -> str:
-        lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
-        if not lines:
-            return ""
-        candidates = lines[:7]
-        best = ""
-        best_score = -1.0
-        vendor_keywords = ["llc", "ltd", "trading", "fze", "inc", "pty", "plc"]
-        for raw in candidates:
-            cleaned = re.sub(r"[^\w\s\-\.\&]", "", raw)
-            if not cleaned:
-                continue
-            letters = sum(1 for c in cleaned if c.isalpha())
-            upper = sum(1 for c in cleaned if c.isupper())
-            upper_ratio = upper / letters if letters else 0
-            score = len(cleaned) + (upper_ratio * 10)
-            lower = cleaned.lower()
-            if any(k in lower for k in vendor_keywords):
-                score += 8
-            if len(cleaned.split()) <= 1:
-                score -= 2
-            if score > best_score:
-                best_score = score
-                best = cleaned
-        return best[:30]
+    def _build(parts: List[str]) -> str:
+        filtered = [p for p in parts if p]
+        name = "_".join(filtered) if filtered else fallback_stem
+        name = _sanitize(name)
+        if not name.lower().endswith(".pdf"):
+            name = f"{name}.pdf"
+        return name[:80]
 
-    doc_type = find_doc_type()
-    number = find_number()
-    date = find_date()
-    vendor = find_vendor()
-
-    base_tokens = []
-    if vendor:
-        base_tokens.append(vendor)
-    if doc_type:
-        base_tokens.append(doc_type.title())
-    if number:
-        base_tokens.append(number)
-    if date:
-        base_tokens.append(date)
-    if base_tokens:
-        suggestions.append("_".join(base_tokens) + ".pdf")
-    if vendor and doc_type and number:
-        suggestions.append(f"{vendor}_{doc_type.title()}_{number}.pdf")
-    if vendor:
-        suggestions.append(f"{vendor}_{fallback_stem}.pdf")
-    if vendor and number and date:
-        suggestions.append(f"{vendor}_Invoice-{number}_{date}.pdf")
-    if vendor and date:
-        suggestions.append(f"{vendor}_{date}.pdf")
-    suggestions.append(f"{fallback_stem}.pdf")
+    candidates = [
+        _build([date, vendor, "Invoice", number, customer, amount_part]),
+        _build([vendor, "Invoice", number, date, customer]),
+        _build([vendor, "Invoice", number, date, amount_part]),
+        _build([vendor, date, f"Invoice-{number}" if number else "Invoice"]),
+        _build([f"Invoice-{number}" if number else "Invoice", date, vendor]),
+    ]
 
     deduped: List[str] = []
     seen = set()
-    for s in suggestions:
-        clean = naming_service.enforce_no_spaces(s)
-        clean = re.sub(r'[<>:"/\\\\|?*]', "", clean)
-        if not clean.lower().endswith(".pdf"):
-            clean = f"{clean}.pdf"
-        if clean in seen:
+    for c in candidates:
+        key = c.lower()
+        if key in seen:
             continue
-        seen.add(clean)
-        deduped.append(clean)
-    while len(deduped) < 5 and fallback_stem:
-        candidate = f"{fallback_stem}_{len(deduped)}.pdf"
-        candidate = naming_service.enforce_no_spaces(candidate)
-        if candidate not in seen:
-            seen.add(candidate)
-            deduped.append(candidate)
+        seen.add(key)
+        deduped.append(c)
+
+    filler_idx = 1
+    base_fallback = _sanitize(fallback_stem) or "document"
+    while len(deduped) < 5:
+        filler = base_fallback if filler_idx == 1 else f"{base_fallback}_{filler_idx}"
+        filler_idx += 1
+        filler = _build([filler])
+        key = filler.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(filler)
+
     return deduped[:5]
 
 
