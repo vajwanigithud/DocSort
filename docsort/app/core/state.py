@@ -1,7 +1,9 @@
+import logging
 import queue
-import threading
+import uuid
 from dataclasses import dataclass
-from typing import List, Optional
+from pathlib import Path
+from typing import Dict, List, Optional
 
 
 @dataclass
@@ -39,108 +41,7 @@ class AppState:
         self.done_items: List[DocumentItem] = []
         self.pending_scanned_paths: "queue.Queue[str]" = queue.Queue()
         self.pending_attention_messages: "queue.Queue[dict]" = queue.Queue()
-        self._seed_dummy_data()
-
-    def _seed_dummy_data(self) -> None:
-        self.scanned_items = [
-            DocumentItem(
-                id="scan-001",
-                source_path="C:/scans/scan_001.pdf",
-                display_name="Scan 001",
-                page_count=1,
-                notes="",
-                suggested_folder="invoices",
-                suggested_name="invoice_001",
-                confidence=0.82,
-                vendor="VendorA",
-                doctype="Invoice",
-                number="001",
-                date_str="01-01-2025",
-                route_hint="AUTO",
-            ),
-            DocumentItem(
-                id="scan-002",
-                source_path="C:/scans/scan_002.pdf",
-                display_name="Scan 002",
-                page_count=10,
-                notes="multi-page",
-                suggested_folder="statements",
-                suggested_name="statement_july",
-                confidence=0.77,
-                vendor="VendorB",
-                doctype="Statement",
-                number="002",
-                date_str="05-01-2025",
-                route_hint="AUTO",
-            ),
-        ]
-        self.splitter_items = [
-            DocumentItem(
-                id="split-001",
-                source_path="C:/scans/split_001.pdf",
-                display_name="Splitter Candidate 1",
-                page_count=10,
-                notes="needs split",
-                suggested_folder="",
-                suggested_name="",
-                confidence=0.5,
-                vendor="VendorC",
-                doctype="Packet",
-                number="SPL-001",
-                date_str="10-01-2025",
-                route_hint="AUTO",
-            )
-        ]
-        self.rename_items = [
-            DocumentItem(
-                id="rename-001",
-                source_path="C:/scans/rename_001.pdf",
-                display_name="Rename 1",
-                page_count=4,
-                notes="",
-                suggested_folder="receipts",
-                suggested_name="receipt_aug",
-                confidence=0.74,
-                vendor="VendorD",
-                doctype="Receipt",
-                number="REN-001",
-                date_str="15-01-2025",
-                route_hint="RENAME",
-            ),
-            DocumentItem(
-                id="rename-002",
-                source_path="C:/scans/rename_002.pdf",
-                display_name="Rename 2",
-                page_count=2,
-                notes="",
-                suggested_folder="letters",
-                suggested_name="letter_client",
-                confidence=0.69,
-                vendor="VendorE",
-                doctype="Letter",
-                number="REN-002",
-                date_str="20-01-2025",
-                route_hint="RENAME",
-            ),
-        ]
-        self.attention_items = [
-            DocumentItem(
-                id="attn-001",
-                source_path="C:/scans/attn_001.pdf",
-                display_name="Needs Attention 1",
-                page_count=3,
-                notes="missing page?",
-                suggested_folder="",
-                suggested_name="",
-                confidence=0.4,
-                vendor="VendorF",
-                doctype="Other",
-                number="ATTN-001",
-                date_str="25-01-2025",
-                route_hint="AUTO",
-            )
-        ]
-        self.done_items = []
+        self.log = logging.getLogger(__name__)
 
     def _find_and_remove(self, collection: List[DocumentItem], item_id: str) -> Optional[DocumentItem]:
         for idx, item in enumerate(collection):
@@ -168,3 +69,62 @@ class AppState:
 
     def enqueue_attention(self, item_id: Optional[str], source_path: str, error: str) -> None:
         self.pending_attention_messages.put({"item_id": item_id, "source_path": source_path, "error": error})
+
+    # ----------------------------------------------------------------------
+    # Hydration helpers
+    # ----------------------------------------------------------------------
+    def _scan_pdfs(self, root: Path) -> Dict[str, Path]:
+        results: Dict[str, Path] = {}
+        if not root.exists():
+            return results
+        try:
+            root_resolved = root.resolve()
+        except Exception:
+            root_resolved = root
+        for path in root_resolved.rglob("*.pdf"):
+            if not path.is_file():
+                continue
+            try:
+                rel_parts = path.resolve().relative_to(root_resolved).parts
+            except Exception:
+                continue
+            # skip underscore folders anywhere under root
+            if any(part.startswith("_") for part in rel_parts[:-1]):
+                continue
+            key = str(path.resolve())
+            results[key] = path.resolve()
+        return results
+
+    def hydrate_from_folder(self, list_name: str, root: Path, route_hint: str = "AUTO") -> None:
+        existing: List[DocumentItem] = getattr(self, list_name, [])
+        existing_by_path = {_path_key(item.source_path): item for item in existing}
+        scanned = self._scan_pdfs(root)
+
+        new_items: List[DocumentItem] = []
+        for resolved_str, path in scanned.items():
+            if resolved_str in existing_by_path:
+                item = existing_by_path[resolved_str]
+                item.source_path = resolved_str
+                item.display_name = path.name
+                new_items.append(item)
+            else:
+                new_items.append(
+                    DocumentItem(
+                        id=uuid.uuid4().hex,
+                        source_path=resolved_str,
+                        display_name=path.name,
+                        page_count=1,
+                        notes="",
+                        suggested_folder="",
+                        suggested_name="",
+                        confidence=0.0,
+                        vendor="Vendor",
+                        doctype="Type",
+                        number="000",
+                        date_str="00-00-0000",
+                        route_hint=route_hint,
+                    )
+                )
+
+        setattr(self, list_name, new_items)
+        self.log.info("Hydrated %s from %s count=%s", list_name, root, len(new_items))

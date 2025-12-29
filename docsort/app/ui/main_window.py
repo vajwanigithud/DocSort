@@ -30,7 +30,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.watcher_enabled = settings_store.get_watcher_enabled()
         self.log = logging.getLogger(__name__)
         self.folder_config = settings_store.get_folder_config()
-        self.config_valid, self.config_error, _paths = folder_validation.validate_folder_config(self.folder_config)
+        self.config_valid, self.config_error, self.resolved_paths = folder_validation.validate_folder_config(self.folder_config)
         if self.config_valid and self.folder_config.destination:
             self.folder_service.set_root(self.folder_config.destination)
         else:
@@ -72,9 +72,35 @@ class MainWindow(QtWidgets.QMainWindow):
         self._delete_timer = QtCore.QTimer(self)
         self._delete_timer.timeout.connect(self._process_pending_deletes)
         self._delete_timer.start(2000)
+        self._hydrate_from_disk()
         self.refresh_all()
 
+    def _hydrate_from_disk(self) -> None:
+        if not self.config_valid:
+            return
+        paths = self.resolved_paths or {}
+        role_map = [
+            ("staging", "scanned_items", "AUTO"),
+            ("splitter", "splitter_items", "AUTO"),
+            ("rename", "rename_items", "RENAME"),
+        ]
+        for role, list_name, hint in role_map:
+            root = paths.get(role)
+            if not root:
+                continue
+            try:
+                self.state.hydrate_from_folder(list_name, root, route_hint=hint)
+            except Exception:  # noqa: BLE001
+                self.log.exception("Failed to hydrate %s from %s", list_name, root)
+        self.log.info(
+            "Hydration complete staging=%s splitter=%s rename=%s",
+            len(self.state.scanned_items),
+            len(self.state.splitter_items),
+            len(self.state.rename_items),
+        )
+
     def refresh_all(self) -> None:
+        self._hydrate_from_disk()
         for tab in [
             self.scanned_tab,
             self.splitter_tab,
@@ -131,7 +157,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _on_config_changed(self) -> None:
         self.folder_config = settings_store.get_folder_config()
-        self.config_valid, self.config_error, _paths = folder_validation.validate_folder_config(self.folder_config)
+        self.config_valid, self.config_error, self.resolved_paths = folder_validation.validate_folder_config(self.folder_config)
         if self.config_valid and self.folder_config.destination:
             self.folder_service.set_root(self.folder_config.destination)
         else:
