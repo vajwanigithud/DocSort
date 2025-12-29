@@ -8,3 +8,7 @@ docsort/app/storage/app.log
 # Runtime data (generated during app usage)
 docsort/app/storage/done_log.jsonl
 docsort/app/storage/training_events.json
+
+# Local OCR cache db
+/docsort/app/storage/*.sqlite
+
