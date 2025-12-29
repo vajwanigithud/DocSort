@@ -1,4 +1,5 @@
 import logging
+import shutil
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -7,7 +8,7 @@ import time
 from PySide6 import QtCore, QtWidgets
 
 from docsort.app.core.state import AppState, DocumentItem
-from docsort.app.services import pdf_split_service, split_plan_service
+from docsort.app.services import move_service, pdf_split_service, split_plan_service
 from docsort.app.storage import settings_store, split_completion_store
 from docsort.app.ui.pdf_preview_widget import PdfPreviewWidget
 from docsort.app.utils import folder_validation
@@ -199,6 +200,47 @@ class SplitterTab(QtWidgets.QWidget):
         except Exception:
             return False
 
+    def _rename_root_path(self) -> Path | None:
+        rename_root = settings_store.get_rename_root()
+        if not rename_root:
+            return None
+        try:
+            return Path(rename_root).resolve()
+        except Exception:
+            return None
+
+    def _move_doc_to_rename(self, doc: DocumentItem) -> bool:
+        cfg = settings_store.get_folder_config()
+        ok, msg, paths = folder_validation.validate_folder_config(cfg)
+        if not ok:
+            QtWidgets.QMessageBox.warning(self, "Send to Rename", msg or "Configure folders first.")
+            return False
+        rename_root = paths.get("rename")
+        splitter_root = paths.get("splitter")
+        if not rename_root or not splitter_root:
+            QtWidgets.QMessageBox.warning(self, "Send to Rename", "Configure folders first.")
+            return False
+        src_path = Path(doc.source_path)
+        if not src_path.exists():
+            QtWidgets.QMessageBox.warning(self, "Send to Rename", "Source file is missing.")
+            return False
+        try:
+            src_path.resolve().relative_to(splitter_root)
+        except Exception:
+            QtWidgets.QMessageBox.warning(self, "Send to Rename", "File is not in the Splitter folder.")
+            return False
+        try:
+            rename_root.mkdir(parents=True, exist_ok=True)
+            dest_path = Path(move_service.unique_path(str(rename_root), src_path.name))
+            shutil.move(str(src_path), dest_path)
+            doc.source_path = str(dest_path.resolve())
+            doc.display_name = dest_path.name
+            doc.route_hint = "RENAME"
+            return True
+        except Exception as exc:  # noqa: BLE001
+            QtWidgets.QMessageBox.warning(self, "Send to Rename", f"Failed to move file: {exc}")
+            return False
+
     # -----------------------------
     # Preview handling (QtPdf only)
     # -----------------------------
@@ -300,11 +342,11 @@ class SplitterTab(QtWidgets.QWidget):
             return
 
         cfg = settings_store.get_folder_config()
-        ok, msg, _paths = folder_validation.validate_folder_config(cfg)
+        ok, msg, paths = folder_validation.validate_folder_config(cfg)
         if not ok:
             QtWidgets.QMessageBox.warning(self, "Split Plan", msg or "Configure folders in Settings first.")
             return
-        rename_root = cfg.rename
+        rename_root = paths.get("rename")
         if not rename_root:
             QtWidgets.QMessageBox.warning(self, "Split Plan", "Configure a Rename / Action folder first.")
             return
@@ -425,7 +467,31 @@ class SplitterTab(QtWidgets.QWidget):
         else:
             doc.notes = f"{doc.notes} split plan applied".strip()
         split_completion_store.mark_split_complete(src)
+        if use_pdf_split and created_paths:
+            archived = self._archive_original(src)
+            if archived:
+                doc.source_path = str(archived)
+                doc.display_name = Path(archived).name
         self.refresh_all()
+
+    def _archive_original(self, src: Path) -> Path | None:
+        root = self._splitter_root_path()
+        if not root:
+            return None
+        try:
+            src.resolve().relative_to(root)
+        except Exception:
+            return None
+        archive_dir = root / "_split_archive"
+        try:
+            archive_dir.mkdir(parents=True, exist_ok=True)
+            dest = Path(move_service.unique_path(str(archive_dir), src.name))
+            shutil.move(str(src), dest)
+            logger.info("Archived split source %s -> %s", src, dest)
+            return dest.resolve()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Failed to archive split source %s: %s", src, exc)
+            return None
 
     def _open_list_context_menu(self, pos: QtCore.QPoint) -> None:
         item = self.list_widget.itemAt(pos)
@@ -438,6 +504,8 @@ class SplitterTab(QtWidgets.QWidget):
         split_completion_store.prune_if_changed(path)
         is_done = split_completion_store.is_split_complete(path)
         menu = QtWidgets.QMenu(self)
+        send_action = menu.addAction("Send to Rename (move file)")
+        send_action.triggered.connect(lambda: self._send_to_rename(doc))
         if is_done:
             action = menu.addAction("Mark as not completed")
             action.triggered.connect(lambda: self._unmark_and_refresh(path))
@@ -445,6 +513,11 @@ class SplitterTab(QtWidgets.QWidget):
             action = menu.addAction("Mark as completed")
             action.triggered.connect(lambda: self._mark_and_refresh(path))
         menu.exec(self.list_widget.mapToGlobal(pos))
+
+    def _send_to_rename(self, doc: DocumentItem) -> None:
+        if self._move_doc_to_rename(doc):
+            self.state.move_between_named_lists("splitter_items", "rename_items", doc.id)
+            self.refresh_all()
 
     def _mark_and_refresh(self, path: Path) -> None:
         split_completion_store.mark_split_complete(path)
