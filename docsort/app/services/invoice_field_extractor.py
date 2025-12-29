@@ -188,13 +188,14 @@ def _extract_customer(text: str) -> str:
 
 
 def extract_invoice_fields(text: str) -> InvoiceFields:
-    clean_text = _normalize_space(text.replace("\u00a0", " "))
-    lines = [ln for ln in clean_text.split("\n") if ln.strip()]
-    vendor = _extract_vendor(lines)
-    invoice_number, num_score = _extract_invoice_number(clean_text)
-    invoice_date, date_score = _extract_date(clean_text)
-    amount, currency, amt_score = _extract_amount(clean_text)
-    customer = _extract_customer(clean_text)
+    raw = (text or "").replace("\u00a0", " ")
+    text_lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
+    text_flat = _normalize_space(raw)
+    vendor = _extract_vendor(text_lines)
+    invoice_number, num_score = _extract_invoice_number(text_flat)
+    invoice_date, date_score = _extract_date(raw)
+    amount, currency, amt_score = _extract_amount(raw)
+    customer = _extract_customer(raw)
     base_score = (3.0 if invoice_number else 0.0) + (3.0 if invoice_date else 0.0) + (2.0 if vendor else 0.0)
     base_score += 0.5 if customer else 0.0
     base_score += 0.5 if amount else 0.0

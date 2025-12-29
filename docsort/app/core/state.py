@@ -1,6 +1,9 @@
+import logging
 import queue
 import threading
+import uuid
 from dataclasses import dataclass
+from pathlib import Path
 from typing import List, Optional
 
 
@@ -32,6 +35,7 @@ def _path_key(path: str) -> str:
 
 class AppState:
     def __init__(self) -> None:
+        self.log = logging.getLogger(__name__)
         self.scanned_items: List[DocumentItem] = []
         self.splitter_items: List[DocumentItem] = []
         self.rename_items: List[DocumentItem] = []
@@ -39,7 +43,7 @@ class AppState:
         self.done_items: List[DocumentItem] = []
         self.pending_scanned_paths: "queue.Queue[str]" = queue.Queue()
         self.pending_attention_messages: "queue.Queue[dict]" = queue.Queue()
-        self._seed_dummy_data()
+        # No dummy data; folders on disk are the source of truth.
 
     def _seed_dummy_data(self) -> None:
         self.scanned_items = [
@@ -168,3 +172,58 @@ class AppState:
 
     def enqueue_attention(self, item_id: Optional[str], source_path: str, error: str) -> None:
         self.pending_attention_messages.put({"item_id": item_id, "source_path": source_path, "error": error})
+
+    def _scan_pdfs(self, root: Path) -> List[Path]:
+        try:
+            base = root.resolve()
+        except Exception:
+            return []
+        if not base.exists():
+            return []
+        results: List[Path] = []
+        try:
+            for path in base.rglob("*.pdf"):
+                if not path.is_file():
+                    continue
+                try:
+                    rel = path.resolve().relative_to(base)
+                except Exception:
+                    continue
+                if any(part.startswith("_") for part in rel.parts[:-1]):
+                    continue
+                results.append(path.resolve())
+        except Exception:
+            return []
+        return sorted(results)
+
+    def hydrate_from_folder(self, list_name: str, root: Path, route_hint: str = "AUTO") -> None:
+        pdfs = self._scan_pdfs(root)
+        existing: List[DocumentItem] = getattr(self, list_name, [])
+        existing_map = {_path_key(item.source_path): item for item in existing}
+        hydrated: List[DocumentItem] = []
+        for path in pdfs:
+            key = _path_key(str(path))
+            if key in existing_map:
+                item = existing_map[key]
+                item.display_name = path.name
+                hydrated.append(item)
+            else:
+                hydrated.append(
+                    DocumentItem(
+                        id=uuid.uuid4().hex,
+                        source_path=str(path),
+                        display_name=path.name,
+                        page_count=1,
+                        notes="",
+                        suggested_folder="",
+                        suggested_name="",
+                        confidence=0.0,
+                        vendor="",
+                        doctype="Document",
+                        number="",
+                        date_str="",
+                        route_hint=route_hint,
+                    )
+                )
+        setattr(self, list_name, hydrated)
+        self.log.info("Hydrated %s items from %s (count=%s)", list_name, root, len(hydrated))
