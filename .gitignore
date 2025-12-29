@@ -12,3 +12,8 @@ docsort/app/storage/training_events.json
 # Local OCR cache db
 /docsort/app/storage/*.sqlite
 
+
+# SQLite WAL/SHM runtime files
+/docsort/app/storage/*.sqlite-wal
+/docsort/app/storage/*.sqlite-shm
+
