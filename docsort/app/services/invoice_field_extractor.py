@@ -1,242 +1,254 @@
-from __future__ import annotations
-
-import dataclasses
+import logging
 import re
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterable, List, Optional, Tuple
+from typing import List, Tuple
+
+logger = logging.getLogger(__name__)
 
 
-@dataclasses.dataclass
+@dataclass
 class InvoiceFields:
-    vendor: str = ""
-    invoice_number: str = ""
-    invoice_date: str = ""
-    currency: str = ""
-    total_amount: str = ""
-    customer: str = ""
-    score: float = 0.0
+    vendor: str
+    invoice_number: str
+    invoice_date: str
+    currency: str
+    total_amount: str
+    customer: str
+    doc_type: str
+    score: float
 
 
-DATE_PATTERNS = [
-    r"\b(\d{4})[/-](\d{2})[/-](\d{2})\b",
-    r"\b(\d{2})[/-](\d{2})[/-](\d{4})\b",
-    r"\b(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{4})\b",
-]
-
-MONTH_MAP = {m.lower(): idx for idx, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], start=1)}
-
-AMOUNT_LABELS = ["total", "grand total", "amount due", "balance due", "total due", "invoice total"]
-NUMBER_LABELS = ["invoice", "inv", "inv.", "inv no", "invoice no", "invoice number", "number", "no"]
+_VENDOR_SKIP = {"tax invoice", "invoice", "receipt", "invoice summary"}
+_CURRENCY_PATTERN = r"(USD|EUR|GBP|AED|SAR|QAR|KWD|OMR|USD|CAD|AUD|INR|PKR|NPR|BHD|CHF|JPY|CNY|USD|\$|€|£)"
 
 
-def _normalize_space(val: str) -> str:
-    return re.sub(r"\s+", " ", val or "").strip()
-
-
-def _clean_token(val: str) -> str:
-    cleaned = re.sub(r"[^\w\-\.\s/]", "", val or "")
+def _sanitize_token(text: str) -> str:
+    cleaned = re.sub(r'[<>:"/\\|?*]', " ", text or "")
+    cleaned = re.sub(r"\s+", "_", cleaned).strip("_")
     cleaned = re.sub(r"_+", "_", cleaned)
-    return _normalize_space(cleaned)
+    return cleaned[:80]
 
 
-def _parse_date(raw: str) -> Optional[str]:
+def _extract_lines(text: str) -> List[str]:
+    raw_lines = (text or "").replace("\u00a0", " ").splitlines()
+    return [ln.strip() for ln in raw_lines if ln.strip()]
+
+
+def _parse_date(raw: str) -> str:
     raw = raw.strip()
-    for pat in DATE_PATTERNS:
-        m = re.search(pat, raw, flags=re.IGNORECASE)
-        if not m:
-            continue
+    # Try YYYY-MM-DD directly
+    for fmt in ["%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%d %b %Y", "%d %B %Y", "%Y/%m/%d"]:
         try:
-            if len(m.groups()) == 3:
-                g1, g2, g3 = m.groups()
-                if pat.startswith(r"\b(\d{4})"):
-                    dt = datetime(int(g1), int(g2), int(g3))
-                elif pat.startswith(r"\b(\d{2})[/-](\d{2})[/-](\d{4})"):
-                    dt = datetime(int(g3), int(g2), int(g1))
-                else:
-                    mon = MONTH_MAP.get(g2[:3].title().lower())
-                    if not mon:
-                        continue
-                    dt = datetime(int(g3), mon, int(g1))
-                return dt.strftime("%Y-%m-%d")
+            dt = datetime.strptime(raw, fmt)
+            return dt.strftime("%Y-%m-%d")
         except Exception:
             continue
-    return None
-
-
-def _score_vendor_line(line: str, idx: int) -> float:
-    cleaned = _clean_token(line)
-    if not cleaned or len(cleaned) < 2:
-        return -1
-    letters = sum(1 for c in cleaned if c.isalpha())
-    upper = sum(1 for c in cleaned if c.isupper())
-    upper_ratio = upper / letters if letters else 0
-    has_suffix = any(sfx in cleaned.lower() for sfx in ["llc", "ltd", "fze", "inc", "pty", "plc", "trading"])
-    words = cleaned.split()
-    score = len(words) * 2 + upper_ratio * 6
-    if has_suffix:
-        score += 4
-    if len(words) == 1:
-        score -= 1
-    if idx == 0:
-        score += 2
-    return score
+    # Normalize dd/mm/yyyy variations
+    if re.match(r"\d{2}[/-]\d{2}[/-]\d{4}", raw):
+        parts = re.split(r"[/-]", raw)
+        try:
+            day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
+            return datetime(year, month, day).strftime("%Y-%m-%d")
+        except Exception:
+            return raw
+    return raw
 
 
 def _extract_vendor(lines: List[str]) -> str:
-    header_lines = lines[:10]
+    candidates = lines[:10]
     best = ""
     best_score = -1.0
-    skip_tokens = {"invoice", "tax invoice", "receipt", "statement", "quotation", "estimate"}
-    for idx, raw in enumerate(header_lines):
-        cleaned = _clean_token(raw)
+    for line in candidates:
+        lower = line.lower()
+        if any(skip in lower for skip in _VENDOR_SKIP):
+            continue
+        cleaned = re.sub(r"[^\w\s\-\&\.\,]", "", line).strip()
         if not cleaned:
             continue
-        lower = cleaned.lower()
-        if any(tok in lower for tok in skip_tokens):
-            continue
-        score = _score_vendor_line(cleaned, idx)
+        letters = sum(1 for c in cleaned if c.isalpha())
+        uppers = sum(1 for c in cleaned if c.isupper())
+        upper_ratio = uppers / letters if letters else 0
+        token_count = len(cleaned.split())
+        score = len(cleaned) + (upper_ratio * 10) + (token_count * 2)
         if score > best_score:
             best_score = score
             best = cleaned
-    return best[:50]
+    return _sanitize_token(best)
 
 
 def _extract_invoice_number(text: str) -> Tuple[str, float]:
-    candidates: List[Tuple[str, float]] = []
-    for m in re.finditer(r"(?:invoice|inv)[\s:\-#]{0,4}([A-Z0-9][A-Z0-9\/\-\._]{2,20})", text, flags=re.IGNORECASE):
-        val = m.group(1)
-        score = 3.0
-        if re.search(r"[A-Za-z]", val):
-            score += 1.0
-        candidates.append((val, score))
-    for m in re.finditer(r"\b([A-Z]?\d{4,10}[A-Z]?)\b", text):
-        val = m.group(1)
-        if re.fullmatch(r"\d{6,}", val) and len(val) > 8:
-            continue
-        if re.fullmatch(r"\d{4}", val):
-            continue
-        candidates.append((val, 1.0))
-    if not candidates:
-        return "", 0.0
-    candidates.sort(key=lambda x: x[1], reverse=True)
-    return candidates[0]
+    patterns = [
+        r"(?:invoice\s*(?:no\.?|number|#)?|inv\.?|inv\s*no\.?|invoice\s*#)\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-\/]{2,30})",
+        r"(?:bill\s*no\.?)\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-\/]{2,30})",
+        r"\b([A-Z]{2,5}[-/ ]?\d{3,})\b",
+    ]
+    best = ""
+    best_score = -1.0
+    for pat in patterns:
+        for m in re.finditer(pat, text, flags=re.IGNORECASE):
+            candidate = m.group(1).strip()
+            if not candidate or re.fullmatch(r"0+", candidate):
+                continue
+            score = len(candidate)
+            if "invoice" in m.group(0).lower() or "inv" in m.group(0).lower():
+                score += 10
+            if score > best_score:
+                best_score = score
+                best = candidate
+    return _sanitize_token(best), max(best_score, 0)
 
 
 def _extract_date(text: str) -> Tuple[str, float]:
-    for m in re.finditer(r"(?:invoice\s+date|date|dated)[:\-\s]*([^\n]{4,20})", text, flags=re.IGNORECASE):
-        parsed = _parse_date(m.group(1))
-        if parsed:
-            return parsed, 2.5
-    for pat in DATE_PATTERNS:
-        for m in re.finditer(pat, text, flags=re.IGNORECASE):
-            if len(m.groups()) == 3:
-                try:
-                    parsed = _parse_date(" ".join(m.groups()))
-                except Exception:
-                    parsed = None
-                if parsed:
-                    return parsed, 2.0
+    date_patterns = [
+        r"\b\d{4}-\d{2}-\d{2}\b",
+        r"\b\d{2}[/-]\d{2}[/-]\d{4}\b",
+        r"\b\d{2}\.\d{2}\.\d{4}\b",
+        r"\b\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}\b",
+    ]
+    for pat in date_patterns:
+        m = re.search(pat, text)
+        if m:
+            raw = m.group(0)
+            return _parse_date(raw), 1.0
     return "", 0.0
 
 
 def _extract_amount(text: str) -> Tuple[str, str, float]:
-    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
-    best_amt = ""
-    best_cur = ""
-    best_score = 0.0
-    currency_pat = r"(USD|EUR|GBP|AED|SAR|QAR|OMR|KWD|\$|€|£|د\.إ)"
-    amount_pat = r"([0-9]{1,3}(?:[, ]\d{3})*(?:\.\d{2})?)"
-    for ln in lines:
-        lower = ln.lower()
-        if not any(lbl in lower for lbl in AMOUNT_LABELS):
+    # Look for "Total", "Amount Due", etc., consider the last occurrence as likely final total
+    amount_patterns = [
+        r"(grand\s*total|total\s*amount|amount\s*due|balance\s*due|total)\s*[:\-]?\s*(" + _CURRENCY_PATTERN + r")?\s*([\$€£]?\s*[0-9][0-9\.,]*)",
+    ]
+    best_currency = ""
+    best_amount = ""
+    for pat in amount_patterns:
+        matches = list(re.finditer(pat, text, flags=re.IGNORECASE))
+        if not matches:
             continue
-        m = re.search(currency_pat + r"\s*" + amount_pat, ln, flags=re.IGNORECASE)
-        cur = ""
-        amt = ""
-        if m:
-            cur = m.group(1)
-            amt = m.group(2)
-        else:
-            m = re.search(amount_pat, ln)
-            amt = m.group(1) if m else ""
-        if not amt:
-            continue
-        amt_clean = re.sub(r"[^\d\.]", "", amt)
-        try:
-            float(amt_clean)
-        except Exception:
-            continue
-        score = 2.0
-        if cur:
-            score += 1.0
-        if score > best_score:
-            best_score = score
-            best_amt = amt_clean
-            best_cur = cur
-    return best_amt, best_cur, best_score
+        # choose last match
+        m = matches[-1]
+        cur = m.group(2) or ""
+        amt = m.group(3) or ""
+        amt = amt.replace(",", "").replace(" ", "")
+        amt = re.sub(r"[^\d\.]", "", amt)
+        best_currency = cur.replace(" ", "").upper().replace("$", "USD").replace("€", "EUR").replace("£", "GBP")
+        best_amount = amt
+        break
+    if best_amount:
+        return best_amount, best_currency, 1.0
+    return "", "", 0.0
 
 
-def _extract_customer(text: str) -> str:
-    for label in ["bill to", "billed to", "customer", "client", "sold to", "ship to"]:
-        pattern = rf"{label}[:\-\s]*([^\n]{{3,60}})"
-        m = re.search(pattern, text, flags=re.IGNORECASE)
-        if m:
-            candidate = _clean_token(m.group(1))
-            if candidate:
-                return candidate[:50]
+def _extract_customer(text: str, lines: List[str]) -> str:
+    markers = ["bill to", "customer", "client", "sold to", "ship to"]
+    lowered = text.lower()
+    for marker in markers:
+        idx = lowered.find(marker)
+        if idx != -1:
+            snippet = text[idx : idx + 120]
+            parts = snippet.splitlines()
+            if parts:
+                candidate = parts[0]
+                if len(parts) > 1:
+                    candidate = parts[1]
+                return _sanitize_token(candidate)
+    for line in lines:
+        lower = line.lower()
+        if any(marker in lower for marker in markers):
+            return _sanitize_token(line)
     return ""
 
 
+def _extract_doc_type(text: str, lines: List[str]) -> str:
+    header = " ".join(lines[:8]).lower()
+    raw_lower = (text or "").lower()
+    haystack = header or raw_lower
+    if "tax invoice" in haystack or "invoice" in haystack:
+        return "invoice"
+    if "receipt" in haystack:
+        return "receipt"
+    if "estimate" in haystack or "quotation" in haystack or "quote" in haystack:
+        return "estimate"
+    return "document"
+
+
 def extract_invoice_fields(text: str) -> InvoiceFields:
-    clean_text = _normalize_space(text.replace("\u00a0", " "))
-    lines = [ln for ln in clean_text.split("\n") if ln.strip()]
+    lines = _extract_lines(text)
+    flat = " ".join(lines)
     vendor = _extract_vendor(lines)
-    invoice_number, num_score = _extract_invoice_number(clean_text)
-    invoice_date, date_score = _extract_date(clean_text)
-    amount, currency, amt_score = _extract_amount(clean_text)
-    customer = _extract_customer(clean_text)
-    base_score = (3.0 if invoice_number else 0.0) + (3.0 if invoice_date else 0.0) + (2.0 if vendor else 0.0)
-    base_score += 0.5 if customer else 0.0
-    base_score += 0.5 if amount else 0.0
-    total_score = base_score + num_score + date_score + amt_score
+    number, num_score = _extract_invoice_number(text)
+    date_val, date_score = _extract_date(text)
+    amount, currency, amt_score = _extract_amount(text)
+    customer = _extract_customer(text, lines)
+    doc_type = _extract_doc_type(text, lines)
+
+    score = 0.0
+    if number:
+        score += 30
+    if date_val:
+        score += 30
+    if vendor:
+        score += 20
+    if amount:
+        score += 10
+    if customer:
+        score += 5
+    score += num_score + date_score + amt_score
+    if doc_type and doc_type != "document":
+        score += 3
 
     fields = InvoiceFields(
         vendor=vendor,
-        invoice_number=invoice_number,
-        invoice_date=invoice_date,
-        currency=currency,
-        total_amount=amount,
+        invoice_number=_sanitize_token(number),
+        invoice_date=date_val,
+        currency=_sanitize_token(currency),
+        total_amount=_sanitize_token(amount),
         customer=customer,
-        score=total_score,
+        doc_type=doc_type,
+        score=score,
     )
+    logger.debug("Extracted invoice fields: %s", fields)
     return fields
 
 
-def _sample_texts() -> List[Tuple[str, str]]:
-    return [
-        (
-            "ACME TRADING LLC\nTax Invoice\nInvoice No: INV-10234\nDate: 12/01/2025\nBill To: Mega Corp\nTotal AED 12,345.67",
-            "basic",
-        ),
-        (
-            "INVOICE\nFOUR SEASONS SUPPLY FZE\nInvoice Number 2024/00123\nInvoice Date 2024-11-05\nCustomer: Blue Water\nGrand Total USD 3,250.00",
-            "slash-number",
-        ),
-        (
-            "Receipt\nVendor: Bright Co Pty Ltd\nInv no. 8891\n01 Jan 2025\nAmount Due $250.00\nBill To Client Name",
-            "receipt-style",
-        ),
+def self_test() -> None:
+    samples = [
+        """
+        RANGEELO GENERAL TRADING LLC
+        TAX INVOICE
+        Invoice No: INV-5406
+        Date: 24/11/2025
+        Bill To: Hollywood Departmental Store
+        Grand Total AED 371.70
+        """,
+        """
+        Super Supplies Pty Ltd
+        Invoice # 2024/00123
+        Invoice Date 01 Jan 2025
+        Amount Due USD 1,240.50
+        Client: Delta Trading
+        """,
+        """
+        ACME Corp
+        Receipt
+        Receipt No 88991-AX
+        Date: 2025-02-05
+        Total: $88.00
+        Customer John Smith
+        """,
+        """
+        Blue Sky Services
+        Quotation #Q-778
+        Date 12 Mar 2025
+        Estimate Total: EUR 450.00
+        """,
     ]
-
-
-def self_test() -> List[Tuple[str, InvoiceFields]]:
-    results: List[Tuple[str, InvoiceFields]] = []
-    for text, name in _sample_texts():
-        fields = extract_invoice_fields(text)
-        results.append((name, fields))
-    return results
+    expected_types = ["invoice", "invoice", "receipt", "estimate"]
+    for idx, sample in enumerate(samples, start=1):
+        fields = extract_invoice_fields(sample)
+        assert fields.doc_type == expected_types[idx - 1], f"doc_type mismatch sample {idx}: {fields.doc_type}"
+        print(f"Sample {idx}: {fields}")
 
 
 if __name__ == "__main__":
-    for label, fields in self_test():
-        print(f"[{label}] -> {dataclasses.asdict(fields)}")
+    self_test()
