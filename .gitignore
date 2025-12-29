@@ -1,19 +1,37 @@
-# Python bytecode
+# ===============================
+# Python bytecode / caches
+# ===============================
 **/__pycache__/
 *.pyc
+*.pyo
+*.pyd
 
+# ===============================
 # Runtime logs
+# ===============================
 docsort/app/storage/app.log
 
+# ===============================
 # Runtime data (generated during app usage)
+# ===============================
 docsort/app/storage/done_log.jsonl
 docsort/app/storage/training_events.json
 
-# Local OCR cache db
-/docsort/app/storage/*.sqlite
+# ===============================
+# SQLite databases & runtime files
+# ===============================
+docsort/app/storage/*.sqlite
+docsort/app/storage/*.sqlite-wal
+docsort/app/storage/*.sqlite-shm
 
+# ===============================
+# OCR / suggestion runtime memory
+# ===============================
+docsort/app/storage/suggestion_memory.json
 
-# SQLite WAL/SHM runtime files
-/docsort/app/storage/*.sqlite-wal
-/docsort/app/storage/*.sqlite-shm
-
+# ===============================
+# Editor / OS noise
+# ===============================
+.vscode/
+.DS_Store
+Thumbs.db

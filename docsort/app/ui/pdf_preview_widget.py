@@ -6,6 +6,8 @@ from PySide6 import QtCore, QtWidgets
 from PySide6.QtPdf import QPdfDocument
 from PySide6.QtPdfWidgets import QPdfView
 
+from docsort.app.services import preview_cache
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,20 +48,30 @@ class PdfPreviewWidget(QtWidgets.QWidget):
 
     def load_pdf(self, path: str) -> bool:
         pdf_path = Path(path)
+        cached_path = preview_cache.cache_pdf_for_preview(pdf_path)
+        if not cached_path:
+            logger.warning("PDF preview load aborted: could not cache %s", pdf_path)
+            return False
         self._current_path = str(pdf_path)
         self._pending_page = 0
+        logger.info("PDF preview using cached copy: src=%s cached=%s", pdf_path, cached_path)
 
-        if not pdf_path.exists():
-            logger.warning("PDF preview load failed: missing path %s", pdf_path)
+        if not cached_path.exists():
+            logger.warning("PDF preview load failed: missing cached path %s", cached_path)
             return False
 
-        status = self.document.load(str(pdf_path))
-        logger.info("PDF preview load started path=%s status=%s", pdf_path, status)
+        status = self.document.load(str(cached_path))
+        logger.info("PDF preview load started path=%s (cached=%s) status=%s", pdf_path, cached_path, status)
         if status == QPdfDocument.Status.Error:
             logger.warning("PDF preview load immediate error for %s", pdf_path)
             return False
         if status == QPdfDocument.Status.Ready:
-            logger.info("PDF preview ready immediately path=%s pageCount=%s", pdf_path, self.document.pageCount())
+            logger.info(
+                "PDF preview ready immediately path=%s cached=%s pageCount=%s",
+                pdf_path,
+                cached_path,
+                self.document.pageCount(),
+            )
             self._apply_pending_page()
         return True
 
@@ -97,23 +109,36 @@ class PdfPreviewWidget(QtWidgets.QWidget):
         old_doc = getattr(self, "document", None)
         if old_doc is self._empty_doc:
             old_doc = None
-        try:
-            self.document.statusChanged.disconnect(self._on_status_changed)  # type: ignore[attr-defined]
-        except Exception:
-            pass
-        # Swap to the persistent empty doc to drop handles without null docs
-        self.view.setDocument(self._empty_doc)
-        logger.debug("PDF preview swapped to empty document")
-        QtWidgets.QApplication.processEvents()
-
         new_doc = QPdfDocument(self)
         try:
             new_doc.statusChanged.connect(self._on_status_changed)  # type: ignore[attr-defined]
         except Exception as exc:  # noqa: BLE001
             logger.warning("PDF preview: statusChanged connect failed after force release: %s", exc)
+        try:
+            self.view.setDocument(new_doc)
+            self.view.setPageMode(QPdfView.PageMode.SinglePage)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("PDF preview setDocument during release failed: %s", exc)
+        try:
+            QtWidgets.QApplication.processEvents()
+            QtWidgets.QApplication.processEvents()
+        except Exception:
+            pass
+        if old_doc:
+            try:
+                old_doc.statusChanged.disconnect(self._on_status_changed)  # type: ignore[attr-defined]
+            except Exception:
+                pass
+            try:
+                old_doc.close()
+                logger.debug("PDF preview old document closed")
+            except Exception:
+                pass
+            try:
+                old_doc.deleteLater()
+            except Exception:
+                pass
         self.document = new_doc
-        self.view.setDocument(self.document)
-        self.view.setPageMode(QPdfView.PageMode.SinglePage)
         self._pending_page = None
         self._current_path = None
         try:
@@ -121,11 +146,6 @@ class PdfPreviewWidget(QtWidgets.QWidget):
             logger.debug("PDF preview navigator rebound")
         except Exception:
             self._page_navigator = None
-        if old_doc:
-            try:
-                old_doc.deleteLater()
-            except Exception:
-                pass
         logger.info("PDF preview document swap complete")
         self._is_swapping = False
 

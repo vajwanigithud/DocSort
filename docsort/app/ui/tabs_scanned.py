@@ -6,7 +6,8 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from docsort.app.core.state import AppState, DocumentItem
 from docsort.app.services import pdf_utils, routing_service
-from docsort.app.storage import settings_store
+from docsort.app.storage import ocr_cache_store, ocr_job_store, settings_store, split_completion_store
+from docsort.app.ui import ocr_status_utils
 from docsort.app.ui.pdf_preview_widget import PdfPreviewWidget
 
 
@@ -39,7 +40,16 @@ class ScannedTab(QtWidgets.QWidget):
         main_layout.addLayout(header)
 
         layout = QtWidgets.QHBoxLayout()
+        header_controls = QtWidgets.QHBoxLayout()
+        self.show_completed = QtWidgets.QCheckBox("Show completed")
+        self.show_completed.setChecked(False)
+        header_controls.addWidget(self.show_completed)
+        header_controls.addStretch()
+        main_layout.addLayout(header_controls)
+
         self.list_widget = QtWidgets.QListWidget()
+        self.list_widget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.list_widget.customContextMenuRequested.connect(self._show_context_menu)
         layout.addWidget(self.list_widget, 1)
 
         self.preview_pdf = PdfPreviewWidget()
@@ -57,22 +67,7 @@ class ScannedTab(QtWidgets.QWidget):
         self.to_rename_btn = QtWidgets.QPushButton("Send to Rename & Move")
         actions.addWidget(self.to_splitter_btn)
         actions.addWidget(self.to_rename_btn)
-
-        routing_group = QtWidgets.QGroupBox("Routing")
-        routing_layout = QtWidgets.QVBoxLayout(routing_group)
-        self.route_auto = QtWidgets.QRadioButton("Auto")
-        self.route_split = QtWidgets.QRadioButton("Send to Splitter")
-        self.route_rename = QtWidgets.QRadioButton("Send to Rename & Move")
-        self.route_auto.setChecked(True)
-        self.route_group = QtWidgets.QButtonGroup(self)
-        for rb in [self.route_auto, self.route_split, self.route_rename]:
-            self.route_group.addButton(rb)
-            routing_layout.addWidget(rb)
-        actions.addWidget(routing_group)
-
-        self.route_now_btn = QtWidgets.QPushButton("Route Now")
         self.auto_route_all_btn = QtWidgets.QPushButton("Auto-route all")
-        actions.addWidget(self.route_now_btn)
         actions.addWidget(self.auto_route_all_btn)
 
         rule_label = QtWidgets.QLabel("Images default to Rename & Move. PDFs default to Auto.")
@@ -86,11 +81,11 @@ class ScannedTab(QtWidgets.QWidget):
         self.list_widget.itemSelectionChanged.connect(self._update_preview)
         self.to_splitter_btn.clicked.connect(self._send_to_splitter)
         self.to_rename_btn.clicked.connect(self._send_to_rename)
-        self.route_now_btn.clicked.connect(self._route_selected)
         self.auto_route_all_btn.clicked.connect(self._auto_route_all)
         self.refresh_btn.clicked.connect(self._refresh_from_source)
         self.start_monitor_btn.clicked.connect(self.start_monitor_cb)
         self.stop_monitor_btn.clicked.connect(self.stop_monitor_cb)
+        self.show_completed.toggled.connect(self.refresh)
         main_layout.addLayout(layout)
 
     def _selected_item(self) -> DocumentItem | None:
@@ -111,20 +106,6 @@ class ScannedTab(QtWidgets.QWidget):
             self.state.move_between_named_lists("scanned_items", "rename_items", selected.id)
             self.refresh_all()
 
-    def _route_selected(self) -> None:
-        selected = self._selected_item()
-        if not selected:
-            return
-        selected.route_hint = (
-            "SPLIT" if self.route_split.isChecked() else "RENAME" if self.route_rename.isChecked() else "AUTO"
-        )
-        target = routing_service.route_item(selected)
-        if target == "splitter":
-            self.state.move_between_named_lists("scanned_items", "splitter_items", selected.id)
-        else:
-            self.state.move_between_named_lists("scanned_items", "rename_items", selected.id)
-        self.refresh_all()
-
     def _auto_route_all(self) -> None:
         routes = routing_service.route_items(self.state.scanned_items)
         for item, target in routes:
@@ -139,9 +120,23 @@ class ScannedTab(QtWidgets.QWidget):
         self.source_label.setText(source_root or "Not set")
         self.warning_label.setVisible(not bool(source_root))
         self.list_widget.clear()
+        show_completed = self.show_completed.isChecked()
         for doc in self.state.scanned_items:
-            item = QtWidgets.QListWidgetItem(f"{doc.display_name} ({doc.page_count}p)")
+            path = Path(doc.source_path)
+            split_completion_store.prune_if_changed(path)
+            is_done = split_completion_store.is_split_complete(path)
+            if not show_completed and is_done:
+                continue
+            status = ocr_status_utils.get_ocr_status(path)
+            badge = ocr_status_utils.format_ocr_badge(status)
+            label = f"{doc.display_name} ({doc.page_count}p)"
+            if badge:
+                label = f"{label} - {badge}"
+            if is_done:
+                label = f"{label} ✅"
+            item = QtWidgets.QListWidgetItem(label)
             item.setData(QtCore.Qt.UserRole, doc)
+            item.setToolTip(ocr_status_utils.get_ocr_tooltip(path))
             self.list_widget.addItem(item)
         if self.list_widget.count() and self.list_widget.currentRow() < 0:
             self.list_widget.setCurrentRow(0)
@@ -159,8 +154,12 @@ class ScannedTab(QtWidgets.QWidget):
         existing_paths = {Path(doc.source_path).resolve() for doc in self.state.scanned_items}
         allowed_ext = {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff"}
         new_items = []
+        show_completed = self.show_completed.isChecked()
         for path in root_path.iterdir():
             if path.suffix.lower() not in allowed_ext or not path.is_file():
+                continue
+            split_completion_store.prune_if_changed(path)
+            if (not show_completed) and split_completion_store.is_split_complete(path):
                 continue
             abs_path = path.resolve()
             if abs_path in existing_paths:
@@ -232,3 +231,80 @@ class ScannedTab(QtWidgets.QWidget):
             self.log.warning("Scanned preview failed for %s: %s", path, exc)
             self._clear_preview()
             self.preview_image.setText("Preview unavailable")
+
+    def _cached_ocr_text(self, path: Path) -> str:
+        fingerprint = ""
+        try:
+            fingerprint = ocr_cache_store.compute_fingerprint(path)
+        except Exception:
+            fingerprint = ""
+        try:
+            return ocr_cache_store.get_cached_text(
+                str(path),
+                max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                fingerprint=fingerprint or None,
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.log.debug("Failed to read cached OCR text for %s: %s", path, exc)
+            return ""
+
+    def _handle_rerun_ocr(self, path: Path) -> None:
+        fingerprint = None
+        try:
+            fingerprint = ocr_cache_store.compute_fingerprint(path)
+        except Exception as exc:  # noqa: BLE001
+            self.log.debug("Failed to compute OCR fingerprint for %s: %s", path, exc)
+        try:
+            ocr_cache_store.delete_cached_text(
+                str(path),
+                max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                fingerprint=fingerprint or None,
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.log.debug("Failed to clear OCR cache for %s: %s", path, exc)
+        try:
+            ocr_job_store.upsert_job(
+                str(path),
+                max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                status="QUEUED",
+                fingerprint=fingerprint or None,
+                worker_id="ui",
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.log.debug("Failed to queue OCR job for %s: %s", path, exc)
+        self.refresh()
+
+    def _show_cached_ocr_text(self, path: Path) -> None:
+        cached_text = self._cached_ocr_text(path)
+        if not cached_text:
+            QtWidgets.QMessageBox.information(self, "OCR Text", "No cached OCR text found.")
+            return
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle(f"OCR Text - {path.name}")
+        layout = QtWidgets.QVBoxLayout(dialog)
+        text_widget = QtWidgets.QPlainTextEdit()
+        text_widget.setReadOnly(True)
+        text_widget.setPlainText(cached_text)
+        layout.addWidget(text_widget)
+        close_btn = QtWidgets.QPushButton("Close")
+        close_btn.clicked.connect(dialog.accept)
+        layout.addWidget(close_btn)
+        dialog.resize(700, 500)
+        dialog.exec()
+
+    def _show_context_menu(self, pos: QtCore.QPoint) -> None:
+        item = self.list_widget.itemAt(pos)
+        if not item:
+            return
+        doc = item.data(QtCore.Qt.UserRole)
+        if not isinstance(doc, DocumentItem):
+            return
+        path = Path(doc.source_path)
+        menu = QtWidgets.QMenu(self.list_widget)
+        rerun_action = menu.addAction("Re-run OCR")
+        view_action = menu.addAction("View OCR Text")
+        chosen = menu.exec(self.list_widget.mapToGlobal(pos))
+        if chosen == rerun_action:
+            self._handle_rerun_ocr(path)
+        elif chosen == view_action:
+            self._show_cached_ocr_text(path)

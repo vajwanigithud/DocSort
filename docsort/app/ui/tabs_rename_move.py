@@ -1,7 +1,6 @@
 import os
 import re
 import shutil
-import time
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -11,13 +10,20 @@ from PySide6 import QtCore, QtWidgets
 
 from docsort.app.core.state import AppState, DocumentItem
 from docsort.app.services import move_service, naming_service, training_store, undo_store, pdf_utils
+from docsort.app.services import ocr_suggestion_service
 from docsort.app.services.pdf_utils import detect_doc_fields_from_pdf
 from docsort.app.services.folder_service import FolderService
-from docsort.app.storage import settings_store, done_log_store
+from docsort.app.storage import settings_store, done_log_store, suggestion_memory_store, ocr_cache_store, ocr_job_store
+from docsort.app.ui import ocr_status_utils
 from docsort.app.ui.pdf_preview_widget import PdfPreviewWidget
 from docsort.app.ui.move_worker import MoveWorker
 
 logger = logging.getLogger(__name__)
+
+MIN_SUGGESTIONS = 5
+OCR_PENDING_TEXT = "(OCR pending)"
+OCR_LOADING_TEXT = OCR_PENDING_TEXT
+INVALID_CHARS_PATTERN = re.compile(r'[<>:"/\\\\|?*]')
 
 
 class RenameMoveTab(QtWidgets.QWidget):
@@ -33,9 +39,18 @@ class RenameMoveTab(QtWidgets.QWidget):
         self._active_worker: Optional[MoveWorker] = None
         self._active_thread: Optional[QtCore.QThread] = None
         self._suggest_cache: Dict[str, str] = {}
+        self._suggestions_map: Dict[str, List[str]] = {}
+        self._selected_suggestion_idx: Dict[str, int] = {}
+        self._suggest_memory: Dict[str, str] = suggestion_memory_store.load_memory()
+        self._ocr_suggestions: Dict[str, List[str]] = {}
+        self._ocr_fingerprints: Dict[str, str] = {}
         self._programmatic_update: bool = False
         self._active_doc_key: Optional[str] = None
         self._build_ui()
+        self._ocr_timer = QtCore.QTimer(self)
+        self._ocr_timer.setInterval(2000)
+        self._ocr_timer.timeout.connect(self._poll_for_cached_ocr)
+        self._ocr_timer.start()
 
     def _set_final_text_programmatically(self, text: str) -> None:
         self._programmatic_update = True
@@ -52,6 +67,8 @@ class RenameMoveTab(QtWidgets.QWidget):
     def _build_ui(self) -> None:
         layout = QtWidgets.QHBoxLayout(self)
         self.list_widget = QtWidgets.QListWidget()
+        self.list_widget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.list_widget.customContextMenuRequested.connect(self._show_context_menu)
         layout.addWidget(self.list_widget, 1)
 
         preview_layout = QtWidgets.QVBoxLayout()
@@ -63,27 +80,21 @@ class RenameMoveTab(QtWidgets.QWidget):
 
         side = QtWidgets.QVBoxLayout()
 
-        rename_group = QtWidgets.QGroupBox("Rename Options")
-        rename_layout = QtWidgets.QVBoxLayout(rename_group)
-        self.option_a = QtWidgets.QRadioButton("A) Date-DD-MM-YYYY + ID (no spaces)")
-        self.option_b = QtWidgets.QRadioButton("B) Source name")
-        self.option_c = QtWidgets.QRadioButton("C) Suggested name")
-        self.option_d = QtWidgets.QRadioButton("D) Custom pattern")
+        self.suggestions_label = QtWidgets.QLabel("Suggested Filenames")
+        self.suggestions_list = QtWidgets.QListWidget()
+        self.suggestions_list.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        bulk_row = QtWidgets.QHBoxLayout()
+        self.apply_selected_btn = QtWidgets.QPushButton("Apply selected suggestion to checked")
+        self.apply_top_btn = QtWidgets.QPushButton("Apply top suggestion to checked")
+        self.clear_manual_btn = QtWidgets.QPushButton("Clear manual for checked")
+        bulk_row.addWidget(self.apply_selected_btn)
+        bulk_row.addWidget(self.apply_top_btn)
+        bulk_row.addWidget(self.clear_manual_btn)
         self.manual_edit = QtWidgets.QLineEdit()
-        self.manual_edit.setPlaceholderText("Manual name")
-        self.option_a.setChecked(True)
-        rename_layout.addWidget(self.option_a)
-        rename_layout.addWidget(self.option_b)
-        rename_layout.addWidget(self.option_c)
-        rename_layout.addWidget(self.option_d)
-        rename_layout.addWidget(QtWidgets.QLabel("Manual"))
-        rename_layout.addWidget(self.manual_edit)
-        side.addWidget(rename_group)
-
-        self.preview_field = QtWidgets.QLineEdit()
-        self.preview_field.setReadOnly(True)
+        self.manual_edit.setPlaceholderText("Manual filename")
         self.final_field = QtWidgets.QLineEdit()
         self.final_field.setPlaceholderText("Final filename")
+        self.final_field.setReadOnly(True)
 
         folder_row = QtWidgets.QHBoxLayout()
         self.folder_dropdown = QtWidgets.QComboBox()
@@ -99,8 +110,11 @@ class RenameMoveTab(QtWidgets.QWidget):
         self.to_splitter_btn = QtWidgets.QPushButton("Send to Splitter")
         self.to_attention_btn = QtWidgets.QPushButton("Needs Attention")
 
-        side.addWidget(QtWidgets.QLabel("Live preview"))
-        side.addWidget(self.preview_field)
+        side.addWidget(self.suggestions_label)
+        side.addWidget(self.suggestions_list)
+        side.addLayout(bulk_row)
+        side.addWidget(QtWidgets.QLabel("Manual filename"))
+        side.addWidget(self.manual_edit)
         side.addWidget(QtWidgets.QLabel("Final filename"))
         side.addWidget(self.final_field)
         side.addLayout(folder_row)
@@ -113,11 +127,12 @@ class RenameMoveTab(QtWidgets.QWidget):
         layout.addLayout(side, 1)
 
         self.list_widget.itemSelectionChanged.connect(self._sync_fields_from_selection)
-        for rb in [self.option_a, self.option_b, self.option_c, self.option_d]:
-            rb.toggled.connect(self._update_preview)
-        self.option_c.toggled.connect(self._on_option_c_selected)
         self.manual_edit.textEdited.connect(self._on_manual_edited)
         self.final_field.textEdited.connect(self._on_final_edited)
+        self.suggestions_list.itemSelectionChanged.connect(self._on_suggestion_selected)
+        self.apply_selected_btn.clicked.connect(self._apply_selected_to_checked)
+        self.apply_top_btn.clicked.connect(self._apply_top_to_checked)
+        self.clear_manual_btn.clicked.connect(self._clear_manual_for_checked)
         self.create_folder_btn.clicked.connect(self._create_folder)
         self.confirm_btn.clicked.connect(self._confirm_current)
         self.bulk_confirm_btn.clicked.connect(self._bulk_confirm)
@@ -171,51 +186,163 @@ class RenameMoveTab(QtWidgets.QWidget):
     def _all_items(self) -> List[QtWidgets.QListWidgetItem]:
         return [self.list_widget.item(i) for i in range(self.list_widget.count())]
 
+    def _checked_docs(self) -> List[DocumentItem]:
+        docs: List[DocumentItem] = []
+        for item in self._all_items():
+            if not item:
+                continue
+            doc = item.data(QtCore.Qt.UserRole)
+            if not isinstance(doc, DocumentItem):
+                continue
+            if item.checkState() == QtCore.Qt.CheckState.Checked:
+                docs.append(doc)
+        return docs
+
+    def _handle_rerun_ocr(self, doc: DocumentItem) -> None:
+        path = Path(doc.source_path)
+        fingerprint = None
+        try:
+            fingerprint = ocr_cache_store.compute_fingerprint(path)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Failed to compute OCR fingerprint for %s: %s", path, exc)
+        try:
+            ocr_cache_store.delete_cached_text(
+                str(path),
+                max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                fingerprint=fingerprint or None,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Failed to clear OCR cache for %s: %s", path, exc)
+        try:
+            ocr_job_store.upsert_job(
+                str(path),
+                max_pages=ocr_status_utils.OCR_STATUS_PAGES,
+                status="QUEUED",
+                fingerprint=fingerprint or None,
+                worker_id="ui",
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Failed to queue OCR job for %s: %s", path, exc)
+        key = self._doc_key(doc)
+        self._ocr_suggestions.pop(key, None)
+        self._ocr_fingerprints.pop(key, None)
+        self._suggestions_map.pop(key, None)
+        self.refresh()
+
+    def _show_cached_ocr_text(self, doc: DocumentItem) -> None:
+        path = Path(doc.source_path)
+        fingerprint = self._ocr_fingerprints.get(self._doc_key(doc)) or ocr_cache_store.compute_fingerprint(path)
+        cached_text = self._load_cached_ocr_text(doc, fingerprint or "", max_pages=ocr_status_utils.OCR_STATUS_PAGES)
+        if not cached_text:
+            QtWidgets.QMessageBox.information(self, "OCR Text", "No cached OCR text found.")
+            return
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle(f"OCR Text - {path.name}")
+        layout = QtWidgets.QVBoxLayout(dialog)
+        text_widget = QtWidgets.QPlainTextEdit()
+        text_widget.setReadOnly(True)
+        text_widget.setPlainText(cached_text)
+        layout.addWidget(text_widget)
+        close_btn = QtWidgets.QPushButton("Close")
+        close_btn.clicked.connect(dialog.accept)
+        layout.addWidget(close_btn)
+        dialog.resize(700, 500)
+        dialog.exec()
+
+    def _show_context_menu(self, pos: QtCore.QPoint) -> None:
+        item = self.list_widget.itemAt(pos)
+        if not item:
+            return
+        doc = item.data(QtCore.Qt.UserRole)
+        if not isinstance(doc, DocumentItem):
+            return
+        menu = QtWidgets.QMenu(self.list_widget)
+        rerun_action = menu.addAction("Re-run OCR")
+        view_action = menu.addAction("View OCR Text")
+        chosen = menu.exec(self.list_widget.mapToGlobal(pos))
+        if chosen == rerun_action:
+            self._handle_rerun_ocr(doc)
+        elif chosen == view_action:
+            self._show_cached_ocr_text(doc)
+
+    def _source_root_path(self) -> Optional[Path]:
+        source_root = settings_store.get_source_root()
+        if not source_root:
+            return None
+        try:
+            return Path(source_root).resolve()
+        except Exception:
+            return None
+
+    def _is_in_source_folder(self, path: Path) -> bool:
+        source_root = self._source_root_path()
+        if not source_root:
+            return False
+        try:
+            resolved = path.resolve()
+            rel = resolved.relative_to(source_root)
+        except Exception:
+            return False
+        if (source_root / "_split_archive") in resolved.parents:
+            return False
+        if any(part.startswith("_") for part in rel.parts[:-1]):
+            return False
+        return resolved.suffix.lower() == ".pdf" and resolved.exists()
+
+    def _visible_rename_items(self) -> List[DocumentItem]:
+        filtered: List[DocumentItem] = []
+        for doc in self.state.rename_items:
+            if self._is_in_source_folder(Path(doc.source_path)):
+                filtered.append(doc)
+            else:
+                logger.debug("Skipping rename item outside source folder: %s", doc.source_path)
+        return filtered
+
     def _get_option_a_name(self, doc: DocumentItem) -> str:
         return naming_service.build_option_a(doc.vendor, doc.doctype, doc.number, doc.date_str, Path(doc.source_path).stem)
 
+    def _learn_key_for_doc(self, doc: DocumentItem) -> str:
+        vendor = (doc.vendor or "").strip().lower()
+        doctype = (doc.doctype or "").strip().lower()
+        number = (doc.number or "").strip()
+        if vendor and doctype and number and doctype not in {"type", "document", "unknown"} and not re.fullmatch(r"0+", number):
+            return "|".join([vendor, doctype, number])
+        key = self._ocr_fingerprints.get(self._doc_key(doc))
+        if key:
+            return f"ocr|{key}"
+        return Path(doc.source_path).stem.lower()
+
     def _final_filename_for_doc(self, doc: DocumentItem) -> str:
         key = self._doc_key(doc)
-        name = self._manual_overrides.get(key)
-        if not name:
-            if doc.doctype == "Type" and doc.number == "000":
-                # Avoid placeholder in UI; prefer empty to indicate detecting
-                logger.info("Using empty/detecting placeholder to avoid Type_000 key=%s", key)
-                name = ""
-            else:
-                name = self._get_option_a_name(doc)
-        name = naming_service.enforce_no_spaces(name)
-        if name and not name.lower().endswith(".pdf"):
-            name = f"{name}.pdf"
-        return name
+        if key in self._manual_overrides:
+            name = self._manual_overrides.get(key, "")
+        else:
+            suggestions = self._get_suggestions_for_doc(doc)
+            sel_idx = self._selected_suggestion_idx.get(key, 0)
+            name = suggestions[sel_idx] if suggestions else self._get_option_a_name(doc)
+        return self._normalize_suggestion(name)
 
     def _recompute_suggestion(self, doc: DocumentItem, reason: str = "") -> str:
         key = self._doc_key(doc)
-        filename = self._get_option_a_name(doc)
-        current_final = self.final_field.text().strip()
+        self._suggest_cache.pop(f"{Path(doc.source_path).resolve()}::{self.folder_dropdown.currentText() or ''}", None)
+        self._suggestions_map.pop(key, None)
+        self._populate_suggestions_ui(doc)
+        self._apply_final_display(doc)
         logger.info(
-            "Recompute suggestion reason=%s key=%s type=%s number=%s date=%s -> %s",
+            "Recompute suggestion reason=%s key=%s type=%s number=%s date=%s",
             reason,
             key,
             doc.doctype,
             doc.number,
             doc.date_str,
-            filename,
         )
-        if self._is_placeholder_filename(current_final):
-            logger.info("Placeholder detected in final field, replacing with suggestion key=%s", key)
-        self._set_final_text_programmatically(filename)
-        # Keep manual field aligned with suggestion for option A/C when no override
-        if not self._manual_overrides.get(key):
-            self._set_manual_text_programmatically(filename)
-        self.preview_field.setText(filename)
-        return filename
+        return self.final_field.text()
 
     def _on_final_edited(self, text: str) -> None:
         doc = self._selected_item()
         if not doc:
             return
-        sanitized = naming_service.enforce_no_spaces(text)
+        sanitized = self._normalize_suggestion(text)
         key = self._doc_key(doc)
         if self._programmatic_update:
             logger.debug("Programmatic final edit ignored key=%s text=%s", key, sanitized)
@@ -227,14 +354,22 @@ class RenameMoveTab(QtWidgets.QWidget):
             return
         self._manual_overrides[key] = sanitized
         logger.info("Manual override set key=%s filename=%s", key, sanitized)
-        if not sanitized.lower().endswith(".pdf"):
-            sanitized = f"{sanitized}.pdf"
         # Avoid recursive textEdited; set using block signals.
         self._set_final_text_programmatically(sanitized)
 
     def _sanitize_filename(self, text: str) -> str:
         cleaned = re.sub(r'[<>:"/\\\\|?*]', "", text)
         cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        return cleaned
+
+    def _normalize_suggestion(self, text: str) -> str:
+        if text in {OCR_LOADING_TEXT, OCR_PENDING_TEXT}:
+            return text
+        cleaned = INVALID_CHARS_PATTERN.sub("", text or "")
+        cleaned = naming_service.enforce_no_spaces(cleaned)
+        cleaned = re.sub(r"_+", "_", cleaned).strip("_")
+        if cleaned and not cleaned.lower().endswith(".pdf"):
+            cleaned = f"{cleaned}.pdf"
         return cleaned
 
     def _build_fallback_stem(self, doc: DocumentItem, folder_name: str) -> str:
@@ -266,16 +401,6 @@ class RenameMoveTab(QtWidgets.QWidget):
         stem = self._sanitize_filename(stem)
         return stem
 
-    def _on_option_c_selected(self, checked: bool) -> None:
-        if not checked:
-            return
-        doc = self._selected_item()
-        if not doc:
-            return
-        suggested = self._get_suggested_name(doc)
-        self._set_manual_text_programmatically(suggested)
-        self._update_preview()
-
     def _get_suggested_name(self, doc: DocumentItem) -> str:
         folder_name = self.folder_dropdown.currentText() or ""
         resolved = str(Path(doc.source_path).resolve())
@@ -287,17 +412,304 @@ class RenameMoveTab(QtWidgets.QWidget):
         missing_number = not doc.number or re.fullmatch(r"0+", doc.number or "") is not None
         if not missing_type and not missing_number:
             suggested = f"{doc.doctype.title()}_{doc.number}"
-            if not suggested.lower().endswith(".pdf"):
-                suggested = f"{suggested}.pdf"
         else:
             suggested = pdf_utils.build_suggested_filename(doc.source_path, fallback_stem)
         self._suggest_cache[key] = suggested
         return suggested
 
+    def _load_cached_ocr_text(self, doc: DocumentItem, fingerprint: str, max_pages: int = ocr_status_utils.OCR_STATUS_PAGES) -> str:
+        path = Path(doc.source_path)
+        if not path.exists() or path.suffix.lower() != ".pdf":
+            return ""
+        effective_fp = fingerprint or ocr_cache_store.compute_fingerprint(path)
+        if not effective_fp:
+            return ""
+        try:
+            return ocr_cache_store.get_cached_text(
+                str(path),
+                max_pages=max_pages,
+                fingerprint=effective_fp,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Failed to read OCR cache for %s: %s", path, exc)
+            return ""
+
+    def _poll_for_cached_ocr(self) -> None:
+        doc = self._selected_item()
+        if not doc:
+            return
+        path = Path(doc.source_path)
+        if path.suffix.lower() != ".pdf":
+            return
+        key = self._doc_key(doc)
+        suggestions = self._suggestions_map.get(key, [])
+        pending = OCR_PENDING_TEXT in suggestions or OCR_PENDING_TEXT in self._ocr_suggestions.get(key, [])
+        if not pending:
+            return
+        fingerprint = ""
+        try:
+            fingerprint = ocr_cache_store.compute_fingerprint(path)
+        except Exception:
+            fingerprint = ""
+        cached_text = self._load_cached_ocr_text(doc, fingerprint, max_pages=ocr_suggestion_service.OCR_MAX_PAGES)
+        if not cached_text:
+            return
+        ocr_names = ocr_suggestion_service.build_ocr_suggestions(
+            cached_text, self._build_fallback_stem(doc, self.folder_dropdown.currentText() or "")
+        )
+        self._ocr_suggestions[key] = [self._normalize_suggestion(s) for s in ocr_names if s]
+        if fingerprint:
+            self._ocr_fingerprints[key] = fingerprint
+        self._suggestions_map.pop(key, None)
+        self._populate_suggestions_ui(doc)
+        self._apply_final_display(doc)
+
+    def _get_suggestions_for_doc(self, doc: DocumentItem) -> List[str]:
+        key = self._doc_key(doc)
+        status = ocr_status_utils.get_ocr_status(Path(doc.source_path))
+        cached_result = self._suggestions_map.get(key)
+        if cached_result:
+            if OCR_PENDING_TEXT not in cached_result:
+                return cached_result
+            if status != "pending":
+                self._suggestions_map.pop(key, None)
+        if self._ocr_suggestions.get(key) == [OCR_PENDING_TEXT] and status != "pending":
+            self._ocr_suggestions.pop(key, None)
+        suggestions: List[str] = []
+        fallback_stem = self._build_fallback_stem(doc, self.folder_dropdown.currentText() or "")
+        learn_keys = []
+        primary_learn_key = self._learn_key_for_doc(doc)
+        if primary_learn_key:
+            learn_keys.append(primary_learn_key)
+        stem_key = Path(doc.source_path).stem.lower()
+        if stem_key and stem_key not in learn_keys:
+            learn_keys.append(stem_key)
+        for lk in learn_keys:
+            learned = self._suggest_memory.get(lk)
+            if learned and not self._is_placeholder_filename(learned):
+                suggestions.append(self._normalize_suggestion(learned))
+                break
+
+        ocr_vals: List[str] = []
+        if Path(doc.source_path).suffix.lower() == ".pdf":
+            fingerprint = ""
+            try:
+                fingerprint = ocr_cache_store.compute_fingerprint(Path(doc.source_path))
+            except Exception:
+                fingerprint = ""
+            cached_text = self._load_cached_ocr_text(doc, fingerprint, max_pages=ocr_suggestion_service.OCR_MAX_PAGES)
+            if cached_text:
+                ocr_names = ocr_suggestion_service.build_ocr_suggestions(cached_text, fallback_stem)
+                ocr_vals = [self._normalize_suggestion(s) for s in ocr_names if s]
+                self._ocr_suggestions[key] = ocr_vals
+                if fingerprint:
+                    self._ocr_fingerprints[key] = fingerprint
+            else:
+                ocr_vals = self._ocr_suggestions.get(key, [])
+                if status == "pending" and not ocr_vals:
+                    ocr_vals = [OCR_PENDING_TEXT]
+                    self._ocr_suggestions[key] = [OCR_PENDING_TEXT]
+        suggestions.extend(ocr_vals)
+
+        opt_a = self._get_option_a_name(doc)
+        if opt_a:
+            suggestions.append(opt_a)
+        try:
+            suggested = self._get_suggested_name(doc)
+            if suggested:
+                suggestions.append(suggested)
+        except Exception:
+            pass
+        fallback = f"{Path(doc.source_path).stem}.pdf"
+        suggestions.append(fallback)
+        suggestions.append(f"{fallback_stem}.pdf")
+
+        normalized: List[str] = []
+        seen = set()
+        for raw in suggestions:
+            norm = self._normalize_suggestion(raw)
+            if not norm:
+                continue
+            if norm in seen:
+                continue
+            seen.add(norm)
+            normalized.append(norm)
+
+        filler_idx = 1
+        while len(normalized) < MIN_SUGGESTIONS:
+            candidate = self._normalize_suggestion(f"{fallback_stem}_{filler_idx}.pdf")
+            filler_idx += 1
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            normalized.append(candidate)
+
+        self._suggestions_map[key] = normalized
+        return normalized
+
+    def _populate_suggestions_ui(self, doc: DocumentItem) -> None:
+        key = self._doc_key(doc)
+        status = ocr_status_utils.get_ocr_status(Path(doc.source_path))
+        badge = ocr_status_utils.format_ocr_badge(status)
+        label = "Suggested Filenames"
+        if badge:
+            label = f"{label} - {badge}"
+        self.suggestions_label.setText(label)
+        suggestions = self._get_suggestions_for_doc(doc)
+        self._programmatic_update = True
+        self.suggestions_list.clear()
+        for s in suggestions:
+            self.suggestions_list.addItem(s)
+        if suggestions:
+            sel_idx = self._selected_suggestion_idx.get(key, 0)
+            sel_idx = min(sel_idx, len(suggestions) - 1)
+            self.suggestions_list.setCurrentRow(sel_idx)
+            self._selected_suggestion_idx[key] = sel_idx
+        self._programmatic_update = False
+
+    def _apply_final_display(self, doc: DocumentItem) -> None:
+        key = self._doc_key(doc)
+        manual = self._manual_overrides.get(key, "").strip()
+        if manual:
+            final_name = manual
+        else:
+            suggestions = self._get_suggestions_for_doc(doc)
+            if suggestions:
+                sel_idx = self._selected_suggestion_idx.get(key, 0)
+                sel_idx = min(sel_idx, len(suggestions) - 1)
+                chosen = suggestions[sel_idx]
+                if chosen in {OCR_LOADING_TEXT, OCR_PENDING_TEXT} and len(suggestions) > 1:
+                    chosen = suggestions[1]
+                final_name = chosen
+            else:
+                final_name = self._get_option_a_name(doc)
+        self._set_final_text_programmatically(self._normalize_suggestion(final_name))
+
+    def _learn_suggestion(self, doc: DocumentItem, suggestion: str) -> None:
+        suggestion = self._normalize_suggestion(suggestion)
+        if not suggestion or suggestion in {OCR_LOADING_TEXT, OCR_PENDING_TEXT}:
+            return
+        if self._is_placeholder_filename(suggestion):
+            return
+        learn_key = self._learn_key_for_doc(doc)
+        if not learn_key:
+            return
+        self._suggest_memory[learn_key] = suggestion
+        suggestion_memory_store.save_memory(self._suggest_memory)
+        logger.info("Learned suggestion key=%s filename=%s", learn_key, suggestion)
+
+    def _on_suggestion_selected(self) -> None:
+        if self._programmatic_update:
+            return
+        doc = self._selected_item()
+        if not doc:
+            return
+        key = self._doc_key(doc)
+        self._selected_suggestion_idx[key] = self.suggestions_list.currentRow()
+        self._apply_final_display(doc)
+        self._learn_suggestion(doc, self.final_field.text())
+
+    def _apply_selected_to_checked(self) -> None:
+        doc = self._selected_item()
+        if not doc:
+            return
+        current_row = self.suggestions_list.currentRow()
+        if current_row < 0:
+            return
+        key = self._doc_key(doc)
+        suggestions = self._get_suggestions_for_doc(doc)
+        if not suggestions:
+            return
+        sel_idx = min(current_row, len(suggestions) - 1)
+        self._selected_suggestion_idx[key] = sel_idx
+        changed = 0
+        checked_docs = self._checked_docs()
+        if not checked_docs:
+            QtWidgets.QMessageBox.information(self, "Bulk apply", "No files checked.")
+            return
+        self._programmatic_update = True
+        try:
+            self.suggestions_list.setCurrentRow(sel_idx)
+            for target_doc in checked_docs:
+                tkey = self._doc_key(target_doc)
+                t_suggestions = self._get_suggestions_for_doc(target_doc)
+                if not t_suggestions:
+                    continue
+                clamped = min(sel_idx, len(t_suggestions) - 1)
+                self._selected_suggestion_idx[tkey] = clamped
+                existing_override = self._manual_overrides.get(tkey, "")
+                if not existing_override or self._is_placeholder_filename(existing_override):
+                    self._manual_overrides.pop(tkey, None)
+                changed += 1
+        finally:
+            self._programmatic_update = False
+        logger.info("Bulk apply selected suggestion to %s docs", changed)
+        self._populate_suggestions_ui(doc)
+        self._apply_final_display(doc)
+        self._learn_suggestion(doc, self.final_field.text())
+        for target_doc in checked_docs:
+            tkey = self._doc_key(target_doc)
+            sel = self._selected_suggestion_idx.get(tkey, 0)
+            t_suggestions = self._get_suggestions_for_doc(target_doc)
+            if t_suggestions:
+                self._learn_suggestion(target_doc, t_suggestions[min(sel, len(t_suggestions) - 1)])
+        if changed:
+            QtWidgets.QMessageBox.information(self, "Bulk apply", f"Applied to {changed} files")
+
+    def _apply_top_to_checked(self) -> None:
+        doc = self._selected_item()
+        if not doc:
+            return
+        key = self._doc_key(doc)
+        self._selected_suggestion_idx[key] = 0
+        changed = 0
+        checked_docs = self._checked_docs()
+        if not checked_docs:
+            QtWidgets.QMessageBox.information(self, "Bulk apply", "No files checked.")
+            return
+        self._programmatic_update = True
+        try:
+            self.suggestions_list.setCurrentRow(0)
+            for target_doc in checked_docs:
+                tkey = self._doc_key(target_doc)
+                t_suggestions = self._get_suggestions_for_doc(target_doc)
+                if not t_suggestions:
+                    continue
+                self._selected_suggestion_idx[tkey] = 0
+                existing_override = self._manual_overrides.get(tkey, "")
+                if not existing_override or self._is_placeholder_filename(existing_override):
+                    self._manual_overrides.pop(tkey, None)
+                changed += 1
+        finally:
+            self._programmatic_update = False
+        logger.info("Bulk apply top suggestion to %s docs", changed)
+        self._populate_suggestions_ui(doc)
+        self._apply_final_display(doc)
+        self._learn_suggestion(doc, self.final_field.text())
+        for target_doc in checked_docs:
+            t_suggestions = self._get_suggestions_for_doc(target_doc)
+            if t_suggestions:
+                self._learn_suggestion(target_doc, t_suggestions[0])
+        if changed:
+            QtWidgets.QMessageBox.information(self, "Bulk apply", f"Applied to {changed} files")
+
+    def _clear_manual_for_checked(self) -> None:
+        doc = self._selected_item()
+        self._programmatic_update = True
+        for target_doc in self._checked_docs():
+            tkey = self._doc_key(target_doc)
+            self._manual_overrides.pop(tkey, None)
+            if doc and self._doc_key(doc) == tkey:
+                self._set_manual_text_programmatically("")
+        self._programmatic_update = False
+        if doc:
+            self._apply_final_display(doc)
+            self._learn_suggestion(doc, self.final_field.text())
+
     def _update_preview(self) -> None:
         doc = self._selected_item()
         if not doc:
-            self.preview_field.clear()
+            self.suggestions_list.clear()
             self.preview.clear()
             self.preview_label.setText("Preview")
             return
@@ -307,32 +719,16 @@ class RenameMoveTab(QtWidgets.QWidget):
             self._manual_overrides.pop(key, None)
             logger.info("Removed placeholder override for key=%s existing=%s", key, existing)
         manual_text = self.manual_edit.text().strip()
-        if self.option_c.isChecked():
-            if not manual_text:
-                manual_text = self._get_suggested_name(doc)
-                self._set_manual_text_programmatically(manual_text)
-            manual_name = self._sanitize_filename(manual_text)
-            if not manual_name.lower().endswith(".pdf"):
-                manual_name = f"{manual_name}.pdf"
-            self.preview_field.setText(manual_name)
-            if not self._programmatic_update and not self._is_placeholder_filename(manual_name):
-                self._manual_overrides[key] = manual_name
-                logger.info("Preview override set key=%s filename=%s", key, manual_name)
-            self._set_final_text_programmatically(manual_name)
-        elif manual_text:
-            manual_name = naming_service.enforce_no_spaces(manual_text)
-            if not manual_name.lower().endswith(".pdf"):
-                manual_name = f"{manual_name}.pdf"
-            self.preview_field.setText(manual_name)
+        self._populate_suggestions_ui(doc)
+        if manual_text:
+            manual_name = self._normalize_suggestion(manual_text)
             if not self._programmatic_update and not self._is_placeholder_filename(manual_name):
                 self._manual_overrides[key] = manual_name
                 logger.info("Preview manual override set key=%s filename=%s", key, manual_name)
-            self._set_final_text_programmatically(manual_name)
         else:
-            option_a = self._get_option_a_name(doc)
-            self.preview_field.setText(option_a)
-            if key not in self._manual_overrides:
-                self._set_final_text_programmatically(option_a)
+            if key in self._manual_overrides and self._is_placeholder_filename(self._manual_overrides[key]):
+                self._manual_overrides.pop(key, None)
+        self._apply_final_display(doc)
         self._update_pdf_preview(doc)
 
     def _update_pdf_preview(self, doc: DocumentItem) -> None:
@@ -387,15 +783,18 @@ class RenameMoveTab(QtWidgets.QWidget):
     def _sync_fields_from_selection(self) -> None:
         doc = self._selected_item()
         if not doc:
-            self.preview_field.clear()
             self.final_field.clear()
             self.preview.clear()
             self.preview_label.setText("Preview")
             return
         self._active_doc_key = self._doc_key(doc)
         self.manual_edit.clear()
-        final_name = self._final_filename_for_doc(doc)
-        self._set_final_text_programmatically(final_name)
+        key = self._doc_key(doc)
+        manual_existing = self._manual_overrides.get(key, "")
+        if manual_existing:
+            self._set_manual_text_programmatically(manual_existing)
+        self._populate_suggestions_ui(doc)
+        self._apply_final_display(doc)
         self._update_preview()
 
     def _create_folder(self) -> None:
@@ -419,11 +818,7 @@ class RenameMoveTab(QtWidgets.QWidget):
     def _bulk_confirm(self) -> None:
         if not self.folder_service.is_configured:
             return
-        docs = []
-        for item in self._all_items():
-            if item.checkState() == QtCore.Qt.Checked:
-                doc = item.data(QtCore.Qt.UserRole)
-                docs.append(doc)
+        docs = self._checked_docs()
         if docs:
             self._confirm_documents(docs)
 
@@ -448,12 +843,21 @@ class RenameMoveTab(QtWidgets.QWidget):
         self.bulk_confirm_btn.setEnabled(root_set)
 
         restore_index = None
+        visible_docs = self._visible_rename_items()
         with QtCore.QSignalBlocker(self.list_widget):
             self.list_widget.clear()
-            for idx, doc in enumerate(self.state.rename_items):
-                item = QtWidgets.QListWidgetItem(f"{doc.display_name} ({doc.page_count}p)")
+            for idx, doc in enumerate(visible_docs):
+                path = Path(doc.source_path)
+                status = ocr_status_utils.get_ocr_status(path)
+                badge = ocr_status_utils.format_ocr_badge(status)
+                label = f"{doc.display_name} ({doc.page_count}p)"
+                if badge:
+                    label = f"{label} - {badge}"
+                item = QtWidgets.QListWidgetItem(label)
                 item.setData(QtCore.Qt.UserRole, doc)
+                item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
                 item.setCheckState(QtCore.Qt.Unchecked)
+                item.setToolTip(ocr_status_utils.get_ocr_tooltip(path))
                 self.list_widget.addItem(item)
                 if prev_path and str(Path(doc.source_path).resolve()) == prev_path:
                     restore_index = idx
