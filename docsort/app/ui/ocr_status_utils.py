@@ -16,6 +16,10 @@ def _get_latest_job(path: Path, fingerprint: Optional[str], max_pages: int) -> O
 
 def get_ocr_status(path: Path, max_pages: int = OCR_STATUS_PAGES) -> Status:
     try:
+        path = path.resolve()
+    except Exception:
+        pass
+    try:
         fingerprint = ocr_cache_store.compute_fingerprint(path)
     except Exception:
         fingerprint = None

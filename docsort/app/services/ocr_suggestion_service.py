@@ -295,7 +295,7 @@ def _try_ocr(path: Path, max_pages: int) -> str:
 
 
 def get_text_for_pdf(path: str, max_pages: int = 1) -> str:
-    pdf_path = Path(path)
+    pdf_path = Path(path).resolve()
     if not pdf_path.exists():
         return ""
     cached_path = ocr_input_cache.cache_pdf_for_ocr(pdf_path)
@@ -438,6 +438,10 @@ def build_ocr_suggestions(text: str, fallback_stem: str) -> List[str]:
         suggestions.append(f"{vendor}_{doc_type.title()}_{number}.pdf")
     if vendor:
         suggestions.append(f"{vendor}_{fallback_stem}.pdf")
+    if vendor and number and date:
+        suggestions.append(f"{vendor}_Invoice-{number}_{date}.pdf")
+    if vendor and date:
+        suggestions.append(f"{vendor}_{date}.pdf")
     suggestions.append(f"{fallback_stem}.pdf")
 
     deduped: List[str] = []
@@ -451,7 +455,13 @@ def build_ocr_suggestions(text: str, fallback_stem: str) -> List[str]:
             continue
         seen.add(clean)
         deduped.append(clean)
-    return deduped
+    while len(deduped) < 5 and fallback_stem:
+        candidate = f"{fallback_stem}_{len(deduped)}.pdf"
+        candidate = naming_service.enforce_no_spaces(candidate)
+        if candidate not in seen:
+            seen.add(candidate)
+            deduped.append(candidate)
+    return deduped[:5]
 
 
 def fingerprint_text(text: str) -> str:
