@@ -1,4 +1,5 @@
 import logging
+import shutil
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -7,7 +8,7 @@ import time
 from PySide6 import QtCore, QtWidgets
 
 from docsort.app.core.state import AppState, DocumentItem
-from docsort.app.services import pdf_split_service, split_plan_service
+from docsort.app.services import pdf_split_service, split_plan_service, move_service
 from docsort.app.storage import settings_store, split_completion_store
 from docsort.app.ui.pdf_preview_widget import PdfPreviewWidget
 from docsort.app.utils import folder_validation
@@ -438,6 +439,8 @@ class SplitterTab(QtWidgets.QWidget):
         split_completion_store.prune_if_changed(path)
         is_done = split_completion_store.is_split_complete(path)
         menu = QtWidgets.QMenu(self)
+        send_action = menu.addAction("Send to Rename (move file)")
+        send_action.triggered.connect(lambda: self._send_to_rename(doc))
         if is_done:
             action = menu.addAction("Mark as not completed")
             action.triggered.connect(lambda: self._unmark_and_refresh(path))
@@ -445,6 +448,37 @@ class SplitterTab(QtWidgets.QWidget):
             action = menu.addAction("Mark as completed")
             action.triggered.connect(lambda: self._mark_and_refresh(path))
         menu.exec(self.list_widget.mapToGlobal(pos))
+
+    def _send_to_rename(self, doc: DocumentItem) -> None:
+        cfg = settings_store.get_folder_config()
+        ok, msg, resolved = folder_validation.validate_folder_config(cfg)
+        if not ok or not resolved.get("rename"):
+            QtWidgets.QMessageBox.warning(self, "Send to Rename", msg or "Configure folders first.")
+            return
+        rename_root = Path(resolved["rename"])
+        src = Path(doc.source_path)
+        if not src.exists():
+            QtWidgets.QMessageBox.warning(self, "Send to Rename", "Source file missing.")
+            return
+        try:
+            rename_root.mkdir(parents=True, exist_ok=True)
+        except Exception as exc:  # noqa: BLE001
+            QtWidgets.QMessageBox.warning(self, "Send to Rename", f"Cannot access rename folder: {exc}")
+            return
+        try:
+            dest_path = Path(move_service.unique_path(str(rename_root), src.name))
+        except Exception as exc:  # noqa: BLE001
+            QtWidgets.QMessageBox.warning(self, "Send to Rename", f"Failed to prepare destination: {exc}")
+            return
+        try:
+            shutil.move(str(src), dest_path)
+        except Exception as exc:  # noqa: BLE001
+            QtWidgets.QMessageBox.warning(self, "Send to Rename", f"Failed to move file: {exc}")
+            return
+        doc.source_path = str(dest_path.resolve())
+        doc.display_name = dest_path.name
+        self.state.move_between_named_lists("splitter_items", "rename_items", doc.id)
+        self.refresh_all()
 
     def _mark_and_refresh(self, path: Path) -> None:
         split_completion_store.mark_split_complete(path)

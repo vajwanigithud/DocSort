@@ -30,7 +30,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.watcher_enabled = settings_store.get_watcher_enabled()
         self.log = logging.getLogger(__name__)
         self.folder_config = settings_store.get_folder_config()
-        self.config_valid, self.config_error, _paths = folder_validation.validate_folder_config(self.folder_config)
+        self.config_valid, self.config_error, self.resolved_paths = folder_validation.validate_folder_config(self.folder_config)
         if self.config_valid and self.folder_config.destination:
             self.folder_service.set_root(self.folder_config.destination)
         else:
@@ -75,6 +75,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.refresh_all()
 
     def refresh_all(self) -> None:
+        if self.config_valid and self.resolved_paths:
+            resolved = self.resolved_paths
+            try:
+                if resolved.get("staging"):
+                    self.state.hydrate_from_folder("scanned_items", resolved["staging"], route_hint="AUTO")
+                if resolved.get("splitter"):
+                    self.state.hydrate_from_folder("splitter_items", resolved["splitter"], route_hint="SPLIT")
+                if resolved.get("rename"):
+                    self.state.hydrate_from_folder("rename_items", resolved["rename"], route_hint="RENAME")
+            except Exception as exc:  # noqa: BLE001
+                self.log.debug("Hydration failed: %s", exc)
         for tab in [
             self.scanned_tab,
             self.splitter_tab,
@@ -131,7 +142,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _on_config_changed(self) -> None:
         self.folder_config = settings_store.get_folder_config()
-        self.config_valid, self.config_error, _paths = folder_validation.validate_folder_config(self.folder_config)
+        self.config_valid, self.config_error, self.resolved_paths = folder_validation.validate_folder_config(self.folder_config)
         if self.config_valid and self.folder_config.destination:
             self.folder_service.set_root(self.folder_config.destination)
         else:
