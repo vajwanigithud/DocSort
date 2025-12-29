@@ -14,3 +14,9 @@ docsort/app/storage/ocr_cache.sqlite
 docsort/app/storage/__pycache__/settings_store.cpython-313.pyc
 docsort/app/storage/*.sqlite-wal
 docsort/app/storage/*.sqlite-shm
+
+# Local runtime data
+/docsort/app/storage/*.sqlite-wal
+/docsort/app/storage/*.sqlite-shm
+/docsort/app/storage/suggestion_memory.json
+
