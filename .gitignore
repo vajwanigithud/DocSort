@@ -35,3 +35,9 @@ docsort/app/storage/suggestion_memory.json
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Local machine/runtime artifacts
+__pycache__/
+*.pyc
+/docsort/app/storage/settings.json
+
