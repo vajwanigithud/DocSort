@@ -28,6 +28,7 @@ import pystray
 from PIL import Image, ImageDraw
 
 from docsort.app.storage import settings_store
+from docsort.app.utils import folder_validation
 
 # ---------------------------
 # Icon helper
@@ -81,6 +82,12 @@ class OcrTrayApp:
     def _start_watcher(self) -> None:
         with self._lock:
             if self._proc and self._proc.poll() is None:
+                return
+            cfg = settings_store.get_folder_config()
+            ok, msg, _paths = folder_validation.validate_folder_config(cfg)
+            if not ok:
+                self.icon.title = f"DocSort OCR (Config invalid: {msg})"
+                self.icon.icon = _make_icon(False)
                 return
 
             self._proc = subprocess.Popen(

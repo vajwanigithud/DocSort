@@ -11,6 +11,8 @@ class FolderService:
         self._configured: bool = False
         if root:
             self.set_root(root)
+        else:
+            self._configured = False
 
     @property
     def root(self) -> Path:
@@ -26,7 +28,12 @@ class FolderService:
         self._root.mkdir(parents=True, exist_ok=True)
         return self._root
 
+    def clear_root(self) -> None:
+        self._configured = False
+
     def list_folders(self) -> List[str]:
+        if not self._configured:
+            return []
         root = self._root
         root.mkdir(parents=True, exist_ok=True)
         return sorted(
@@ -34,6 +41,8 @@ class FolderService:
         )
 
     def create_folder(self, name: str) -> str:
+        if not self._configured:
+            raise ValueError("Destination root not configured")
         sanitized = name.replace(" ", "_")
         root = self._root
         root.mkdir(parents=True, exist_ok=True)

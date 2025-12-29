@@ -19,6 +19,7 @@ from typing import Dict, Optional
 from docsort.app.services.ocr_suggestion_service import get_text_for_pdf
 from docsort.app.storage import ocr_cache_store, ocr_job_store, settings_store
 from docsort.app.ui import ocr_status_utils
+from docsort.app.utils import folder_validation
 
 logger = logging.getLogger(__name__)
 THROTTLE_SECONDS = 1.0
@@ -44,7 +45,7 @@ def _parse_args() -> argparse.Namespace:
         "source_folder",
         type=Path,
         nargs="?",
-        help="Folder to watch for PDFs recursively. Defaults to configured source_root.",
+        help="Folder to watch for PDFs recursively. Defaults to configured Rename / Action folder.",
     )
     parser.add_argument("--pages", type=int, default=1, help="Max pages to OCR per PDF (default: 1).")
     parser.add_argument("--poll-seconds", type=float, default=10.0, help="Polling interval when watchdog is unavailable.")
@@ -101,10 +102,10 @@ def _should_skip_path(path: Path) -> bool:
 def _resolve_source_folder(arg_folder: Optional[Path]) -> Optional[Path]:
     if arg_folder:
         return arg_folder
-    saved = settings_store.get_source_root()
-    if saved:
+    cfg = settings_store.get_folder_config()
+    if cfg.rename:
         try:
-            return Path(saved)
+            return Path(cfg.rename)
         except Exception:
             return None
     return None
@@ -330,11 +331,24 @@ def _watchdog_loop(folder: Path, pages: int, poll_seconds: float, seen: Dict[Pat
 def main() -> None:
     _setup_logging()
     args = _parse_args()
+    cfg = settings_store.get_folder_config()
+    ok, msg, _paths = folder_validation.validate_folder_config(cfg)
+    if not ok:
+        logger.error("Folder config invalid: %s", msg)
+        return
+    if args.source_folder and cfg.rename:
+        try:
+            if Path(args.source_folder).resolve() != Path(cfg.rename).resolve():
+                logger.error("OCR watcher can only run on the configured Rename / Action folder.")
+                return
+        except Exception:
+            logger.error("OCR watcher can only run on the configured Rename / Action folder.")
+            return
     source = _resolve_source_folder(args.source_folder)
     pages = max(1, int(args.pages or 1))
     poll_seconds = float(args.poll_seconds or 10.0)
     if not source:
-        logger.error("Source folder not provided and no source_root configured.")
+        logger.error("Rename/Action folder not provided or configured.")
         return
     source = source.resolve()
     if not source.exists():

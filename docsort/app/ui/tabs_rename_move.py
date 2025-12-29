@@ -17,6 +17,7 @@ from docsort.app.storage import settings_store, done_log_store, suggestion_memor
 from docsort.app.ui import ocr_status_utils
 from docsort.app.ui.pdf_preview_widget import PdfPreviewWidget
 from docsort.app.ui.move_worker import MoveWorker
+from docsort.app.utils import folder_validation
 
 logger = logging.getLogger(__name__)
 
@@ -266,11 +267,11 @@ class RenameMoveTab(QtWidgets.QWidget):
             self._show_cached_ocr_text(doc)
 
     def _source_root_path(self) -> Optional[Path]:
-        source_root = settings_store.get_source_root()
-        if not source_root:
+        rename_root = settings_store.get_rename_root()
+        if not rename_root:
             return None
         try:
-            return Path(source_root).resolve()
+            return Path(rename_root).resolve()
         except Exception:
             return None
 
@@ -837,8 +838,12 @@ class RenameMoveTab(QtWidgets.QWidget):
     def refresh(self) -> None:
         prev_doc = self._selected_item()
         prev_path = str(Path(prev_doc.source_path).resolve()) if prev_doc else None
-        root_set = self.folder_service.is_configured and bool(settings_store.get_destination_root())
+        cfg = settings_store.get_folder_config()
+        config_ok, config_msg, _paths = folder_validation.validate_folder_config(cfg)
+        root_set = self.folder_service.is_configured and bool(cfg.destination) and config_ok
         self.warning_label.setVisible(not root_set)
+        if not root_set:
+            self.warning_label.setText(config_msg or "Configure folders in Settings")
         self.confirm_btn.setEnabled(root_set)
         self.bulk_confirm_btn.setEnabled(root_set)
 

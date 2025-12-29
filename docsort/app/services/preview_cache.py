@@ -17,9 +17,9 @@ _CACHE_MAP: Dict[Tuple[str, int, int], Path] = {}
 
 
 def _ensure_cache_dir() -> Optional[Path]:
-    root = settings_store.get_source_root()
+    root = settings_store.get_rename_root()
     if not root:
-        logger.warning("Preview cache: no source_root configured.")
+        logger.warning("Preview cache: no rename_root configured.")
         return None
     try:
         cache_dir = Path(root) / CACHE_SUBDIR

@@ -17,6 +17,7 @@ from docsort.app.ui.tabs_rename_move import RenameMoveTab
 from docsort.app.ui.tabs_scanned import ScannedTab
 from docsort.app.ui.tabs_settings import SettingsTab
 from docsort.app.ui.tabs_splitter import SplitterTab
+from docsort.app.utils import folder_validation
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -28,10 +29,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.source_poller: SourcePoller | None = None
         self.watcher_enabled = settings_store.get_watcher_enabled()
         self.log = logging.getLogger(__name__)
-        saved_root = settings_store.get_destination_root()
-        if saved_root:
-            self.folder_service.set_root(saved_root)
-        self.source_root = settings_store.get_source_root()
+        self.folder_config = settings_store.get_folder_config()
+        self.config_valid, self.config_error, _paths = folder_validation.validate_folder_config(self.folder_config)
+        if self.config_valid and self.folder_config.destination:
+            self.folder_service.set_root(self.folder_config.destination)
+        else:
+            self.folder_service.clear_root()
+        self.staging_root = self.folder_config.staging
 
         self.tabs = QtWidgets.QTabWidget()
         self.scanned_tab = ScannedTab(self.state, self.refresh_all, self.start_poller, self.stop_poller)
@@ -43,14 +47,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings_tab = SettingsTab(
             self.folder_service,
             self.refresh_all,
-            self._on_source_changed,
+            self._on_config_changed,
             self.start_poller,
             self.stop_poller,
         )
 
-        self.tabs.addTab(self.scanned_tab, "Scanned")
+        self.tabs.addTab(self.scanned_tab, "Staging")
         self.tabs.addTab(self.splitter_tab, "Splitter")
-        self.tabs.addTab(self.rename_tab, "Rename & Move")
+        self.tabs.addTab(self.rename_tab, "Rename / Action")
         self.tabs.addTab(self.attention_tab, "Needs Attention")
         self.tabs.addTab(self.done_tab, "Done")
         self.tabs.addTab(self.jobs_tab, "OCR Jobs")
@@ -86,23 +90,29 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @QtCore.Slot()
     def _update_watcher_status(self) -> None:
-        if self.source_poller and self.source_poller.is_running() and self.source_root:
-            self.status_label.setText(f"Watcher: ON (Polling)")
+        if not self.config_valid:
+            self.status_label.setText(f"Config error: {self.config_error}")
+        elif self.source_poller and self.source_poller.is_running() and self.staging_root:
+            self.status_label.setText("Watcher: ON (Polling)")
         else:
             self.status_label.setText("Watcher: OFF")
 
     def start_poller(self) -> None:
-        if not self.source_root:
-            self.log.warning("No source root set; watcher not started.")
+        if not self.config_valid:
+            self.log.warning("Invalid folder config; watcher not started.")
+            self._update_watcher_status()
             return
-        self.log.info("Scheduling poller start at %s", self.source_root)
-        threading.Thread(target=self._start_poller_bg, args=(self.source_root,), daemon=True).start()
+        if not self.staging_root:
+            self.log.warning("No staging root set; watcher not started.")
+            return
+        self.log.info("Scheduling poller start at %s", self.staging_root)
+        threading.Thread(target=self._start_poller_bg, args=(self.staging_root,), daemon=True).start()
 
     def _start_poller_bg(self, path: str) -> None:
         try:
             self.source_poller = SourcePoller(path, self.state.enqueue_scanned_path)
             self.source_poller.start()
-            self.source_root = path
+            self.staging_root = path
         except Exception:  # noqa: BLE001
             self.log.exception("Failed to start poller at %s", path)
         QtCore.QMetaObject.invokeMethod(self, "_update_watcher_status", QtCore.Qt.QueuedConnection)
@@ -119,9 +129,17 @@ class MainWindow(QtWidgets.QMainWindow):
             self.log.exception("Failed to stop poller")
         QtCore.QMetaObject.invokeMethod(self, "_update_watcher_status", QtCore.Qt.QueuedConnection)
 
-    def _on_source_changed(self, path: str) -> None:
-        self.source_root = path
-        self.log.info("Source changed to %s", path)
+    def _on_config_changed(self) -> None:
+        self.folder_config = settings_store.get_folder_config()
+        self.config_valid, self.config_error, _paths = folder_validation.validate_folder_config(self.folder_config)
+        if self.config_valid and self.folder_config.destination:
+            self.folder_service.set_root(self.folder_config.destination)
+        else:
+            self.folder_service.clear_root()
+        self.staging_root = self.folder_config.staging
+        self.log.info("Folder config updated; staging=%s", self.staging_root)
+        if not self.config_valid:
+            self.stop_poller()
         self.refresh_all()
 
     def _drain_pending(self) -> None:
@@ -131,7 +149,15 @@ class MainWindow(QtWidgets.QMainWindow):
                 path = self.state.pending_scanned_paths.get_nowait()
             except Exception:
                 break
+            if not self.config_valid or not self.staging_root:
+                continue
             resolved = str(Path(path).resolve())
+            try:
+                staging_root_path = Path(self.staging_root).resolve()
+                Path(resolved).relative_to(staging_root_path)
+            except Exception:
+                self.log.debug("Skipping pending path outside staging folder: %s", resolved)
+                continue
             if not any(str(Path(d.source_path).resolve()) == resolved for d in self.state.scanned_items):
                 if resolved in done_log_store.seen_sources():
                     continue
