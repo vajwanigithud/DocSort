@@ -53,6 +53,13 @@ class RenameMoveTab(QtWidgets.QWidget):
         self._ocr_timer.timeout.connect(self._poll_for_cached_ocr)
         self._ocr_timer.start()
 
+    def reset_suggestion_cache(self) -> None:
+        self._suggest_cache.clear()
+        self._suggestions_map.clear()
+        self._ocr_suggestions.clear()
+        self._ocr_fingerprints.clear()
+        logger.info("Rename/Action suggestion caches cleared")
+
     def _set_final_text_programmatically(self, text: str) -> None:
         self._programmatic_update = True
         with QtCore.QSignalBlocker(self.final_field):
@@ -419,7 +426,10 @@ class RenameMoveTab(QtWidgets.QWidget):
         return suggested
 
     def _load_cached_ocr_text(self, doc: DocumentItem, fingerprint: str, max_pages: int = ocr_status_utils.OCR_STATUS_PAGES) -> str:
-        path = Path(doc.source_path)
+        try:
+            path = Path(doc.source_path).resolve()
+        except Exception:
+            path = Path(doc.source_path)
         if not path.exists() or path.suffix.lower() != ".pdf":
             return ""
         effective_fp = fingerprint or ocr_cache_store.compute_fingerprint(path)
@@ -439,7 +449,10 @@ class RenameMoveTab(QtWidgets.QWidget):
         doc = self._selected_item()
         if not doc:
             return
-        path = Path(doc.source_path)
+        try:
+            path = Path(doc.source_path).resolve()
+        except Exception:
+            path = Path(doc.source_path)
         if path.suffix.lower() != ".pdf":
             return
         key = self._doc_key(doc)
@@ -467,7 +480,12 @@ class RenameMoveTab(QtWidgets.QWidget):
 
     def _get_suggestions_for_doc(self, doc: DocumentItem) -> List[str]:
         key = self._doc_key(doc)
-        status = ocr_status_utils.get_ocr_status(Path(doc.source_path))
+        path = Path(doc.source_path)
+        try:
+            path = path.resolve()
+        except Exception:
+            pass
+        status = ocr_status_utils.get_ocr_status(path)
         cached_result = self._suggestions_map.get(key)
         if cached_result:
             if OCR_PENDING_TEXT not in cached_result:
@@ -492,38 +510,54 @@ class RenameMoveTab(QtWidgets.QWidget):
                 break
 
         ocr_vals: List[str] = []
-        if Path(doc.source_path).suffix.lower() == ".pdf":
-            fingerprint = ""
+        cache_found = False
+        cached_text = ""
+        fingerprint = ""
+        use_fallbacks = True
+        if path.suffix.lower() == ".pdf":
             try:
-                fingerprint = ocr_cache_store.compute_fingerprint(Path(doc.source_path))
+                fingerprint = ocr_cache_store.compute_fingerprint(path)
             except Exception:
                 fingerprint = ""
             cached_text = self._load_cached_ocr_text(doc, fingerprint, max_pages=ocr_suggestion_service.OCR_MAX_PAGES)
+            cache_found = bool(cached_text)
             if cached_text:
                 ocr_names = ocr_suggestion_service.build_ocr_suggestions(cached_text, fallback_stem)
-                ocr_vals = [self._normalize_suggestion(s) for s in ocr_names if s]
-                self._ocr_suggestions[key] = ocr_vals
-                if fingerprint:
-                    self._ocr_fingerprints[key] = fingerprint
-            else:
+                text_words = len(cached_text.split())
+                text_chars = len(cached_text)
+                if ocr_names and (text_chars >= 60 or text_words >= 12):
+                    ocr_vals = [self._normalize_suggestion(s) for s in ocr_names if s][:5]
+                    self._ocr_suggestions[key] = ocr_vals
+                    if fingerprint:
+                        self._ocr_fingerprints[key] = fingerprint
+                    use_fallbacks = False
+                else:
+                    logger.debug(
+                        "Cached OCR text too weak for %s (chars=%s words=%s); falling back",
+                        path,
+                        text_chars,
+                        text_words,
+                    )
+            if not ocr_vals:
                 ocr_vals = self._ocr_suggestions.get(key, [])
                 if status == "pending" and not ocr_vals:
                     ocr_vals = [OCR_PENDING_TEXT]
                     self._ocr_suggestions[key] = [OCR_PENDING_TEXT]
         suggestions.extend(ocr_vals)
 
-        opt_a = self._get_option_a_name(doc)
-        if opt_a:
-            suggestions.append(opt_a)
-        try:
-            suggested = self._get_suggested_name(doc)
-            if suggested:
-                suggestions.append(suggested)
-        except Exception:
-            pass
-        fallback = f"{Path(doc.source_path).stem}.pdf"
-        suggestions.append(fallback)
-        suggestions.append(f"{fallback_stem}.pdf")
+        if use_fallbacks:
+            opt_a = self._get_option_a_name(doc)
+            if opt_a:
+                suggestions.append(opt_a)
+            try:
+                suggested = self._get_suggested_name(doc)
+                if suggested:
+                    suggestions.append(suggested)
+            except Exception:
+                pass
+            fallback = f"{Path(doc.source_path).stem}.pdf"
+            suggestions.append(fallback)
+            suggestions.append(f"{fallback_stem}.pdf")
 
         normalized: List[str] = []
         seen = set()
@@ -536,21 +570,37 @@ class RenameMoveTab(QtWidgets.QWidget):
             seen.add(norm)
             normalized.append(norm)
 
-        filler_idx = 1
-        while len(normalized) < MIN_SUGGESTIONS:
-            candidate = self._normalize_suggestion(f"{fallback_stem}_{filler_idx}.pdf")
-            filler_idx += 1
-            if candidate in seen:
-                continue
-            seen.add(candidate)
-            normalized.append(candidate)
+        if use_fallbacks:
+            filler_idx = 1
+            while len(normalized) < MIN_SUGGESTIONS:
+                candidate = self._normalize_suggestion(f"{fallback_stem}_{filler_idx}.pdf")
+                filler_idx += 1
+                if candidate in seen:
+                    continue
+                seen.add(candidate)
+                normalized.append(candidate)
 
+        ocr_preview = (cached_text or "").replace("\n", " ")[:120]
+        logger.debug(
+            "OCR suggestions debug path=%s cache_found=%s chars=%s words=%s preview=\"%s\" suggestions=%s",
+            path,
+            cache_found,
+            len(cached_text or ""),
+            len((cached_text or "").split()),
+            ocr_preview,
+            normalized[:5],
+        )
         self._suggestions_map[key] = normalized
         return normalized
 
     def _populate_suggestions_ui(self, doc: DocumentItem) -> None:
         key = self._doc_key(doc)
-        status = ocr_status_utils.get_ocr_status(Path(doc.source_path))
+        path = Path(doc.source_path)
+        try:
+            path = path.resolve()
+        except Exception:
+            pass
+        status = ocr_status_utils.get_ocr_status(path)
         badge = ocr_status_utils.format_ocr_badge(status)
         label = "Suggested Filenames"
         if badge:

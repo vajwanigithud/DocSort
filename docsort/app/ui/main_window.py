@@ -164,6 +164,11 @@ class MainWindow(QtWidgets.QMainWindow):
             self.folder_service.clear_root()
         self.staging_root = self.folder_config.staging
         self.log.info("Folder config updated; staging=%s", self.staging_root)
+        try:
+            if hasattr(self.rename_tab, "reset_suggestion_cache"):
+                self.rename_tab.reset_suggestion_cache()
+        except Exception:  # noqa: BLE001
+            self.log.debug("Failed to reset suggestion cache after config change", exc_info=True)
         if not self.config_valid:
             self.stop_poller()
         self.refresh_all()
