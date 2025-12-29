@@ -42,7 +42,7 @@ def _key_for_path(path: Path) -> Tuple[str, Path]:
         resolved = path.resolve()
     except Exception:
         resolved = path
-    root = settings_store.get_source_root()
+    root = settings_store.get_splitter_root()
     if root:
         try:
             root_path = Path(root).resolve()

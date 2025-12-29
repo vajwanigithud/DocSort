@@ -1,14 +1,16 @@
 import logging
+import shutil
 import uuid
 from pathlib import Path
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from docsort.app.core.state import AppState, DocumentItem
-from docsort.app.services import pdf_utils, routing_service
-from docsort.app.storage import ocr_cache_store, ocr_job_store, settings_store, split_completion_store
+from docsort.app.services import move_service, pdf_utils, routing_service
+from docsort.app.storage import settings_store, split_completion_store
 from docsort.app.ui import ocr_status_utils
 from docsort.app.ui.pdf_preview_widget import PdfPreviewWidget
+from docsort.app.utils import folder_validation
 
 
 class ScannedTab(QtWidgets.QWidget):
@@ -25,11 +27,11 @@ class ScannedTab(QtWidgets.QWidget):
         main_layout = QtWidgets.QVBoxLayout(self)
 
         header = QtWidgets.QHBoxLayout()
-        header.addWidget(QtWidgets.QLabel("Source Folder:"))
+        header.addWidget(QtWidgets.QLabel("Staging Folder:"))
         self.source_label = QtWidgets.QLabel("Not set")
         header.addWidget(self.source_label, 1)
-        self.refresh_btn = QtWidgets.QPushButton("Refresh from Source")
-        self.warning_label = QtWidgets.QLabel("Set Source Folder in Settings")
+        self.refresh_btn = QtWidgets.QPushButton("Refresh from Staging")
+        self.warning_label = QtWidgets.QLabel("Set all folders in Settings")
         self.warning_label.setStyleSheet("color: #b33;")
         self.start_monitor_btn = QtWidgets.QPushButton("Start Monitoring")
         self.stop_monitor_btn = QtWidgets.QPushButton("Stop Monitoring")
@@ -48,8 +50,7 @@ class ScannedTab(QtWidgets.QWidget):
         main_layout.addLayout(header_controls)
 
         self.list_widget = QtWidgets.QListWidget()
-        self.list_widget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
-        self.list_widget.customContextMenuRequested.connect(self._show_context_menu)
+        self.list_widget.setContextMenuPolicy(QtCore.Qt.NoContextMenu)
         layout.addWidget(self.list_widget, 1)
 
         self.preview_pdf = PdfPreviewWidget()
@@ -64,7 +65,7 @@ class ScannedTab(QtWidgets.QWidget):
 
         actions = QtWidgets.QVBoxLayout()
         self.to_splitter_btn = QtWidgets.QPushButton("Send to Splitter")
-        self.to_rename_btn = QtWidgets.QPushButton("Send to Rename & Move")
+        self.to_rename_btn = QtWidgets.QPushButton("Send to Rename / Action")
         actions.addWidget(self.to_splitter_btn)
         actions.addWidget(self.to_rename_btn)
         self.auto_route_all_btn = QtWidgets.QPushButton("Auto-route all")
@@ -94,35 +95,125 @@ class ScannedTab(QtWidgets.QWidget):
             return None
         return item.data(QtCore.Qt.UserRole)
 
+    def _config_status(self) -> tuple[bool, str, settings_store.FolderConfig]:
+        cfg = settings_store.get_folder_config()
+        ok, msg, _paths = folder_validation.validate_folder_config(cfg)
+        return ok, msg, cfg
+
+    def _staging_root_path(self) -> Path | None:
+        cfg = settings_store.get_folder_config()
+        staging = cfg.staging
+        if not staging:
+            return None
+        try:
+            return Path(staging).resolve()
+        except Exception:
+            return None
+
+    def _is_in_staging_folder(self, path: Path) -> bool:
+        root = self._staging_root_path()
+        if not root:
+            return False
+        try:
+            path.resolve().relative_to(root)
+            return True
+        except Exception:
+            return False
+
+    def _move_doc_to_role(self, doc: DocumentItem, role: str) -> bool:
+        ok, msg, cfg = self._config_status()
+        if not ok:
+            QtWidgets.QMessageBox.warning(self, "Move", msg or "Configure folders first.")
+            return False
+        target_root = cfg.splitter if role == "splitter" else cfg.rename
+        if not target_root:
+            QtWidgets.QMessageBox.warning(self, "Move", "Target folder not configured.")
+            return False
+
+        src_path = Path(doc.source_path)
+        if not src_path.exists():
+            QtWidgets.QMessageBox.warning(self, "Move", "Source file is missing.")
+            return False
+        staging_root = cfg.staging
+        if staging_root:
+            try:
+                staging_path = Path(staging_root).resolve()
+                if staging_path not in src_path.resolve().parents:
+                    QtWidgets.QMessageBox.warning(self, "Move", "File is not in the Staging folder.")
+                    return False
+            except Exception:
+                pass
+
+        dest_dir = Path(target_root)
+        try:
+            dest_dir.mkdir(parents=True, exist_ok=True)
+        except Exception as exc:  # noqa: BLE001
+            QtWidgets.QMessageBox.warning(self, "Move", f"Cannot create target folder: {exc}")
+            return False
+        if dest_dir in src_path.parents:
+            doc.source_path = str(src_path.resolve())
+            doc.display_name = src_path.name
+            return True
+
+        try:
+            dest_path = Path(move_service.unique_path(str(dest_dir), src_path.name))
+            shutil.move(str(src_path), dest_path)
+            doc.source_path = str(dest_path.resolve())
+            doc.display_name = dest_path.name
+            return True
+        except Exception as exc:  # noqa: BLE001
+            QtWidgets.QMessageBox.warning(self, "Move", f"Failed to move file: {exc}")
+            return False
+
     def _send_to_splitter(self) -> None:
         selected = self._selected_item()
         if selected:
-            self.state.move_between_named_lists("scanned_items", "splitter_items", selected.id)
-            self.refresh_all()
+            if self._move_doc_to_role(selected, "splitter"):
+                self.state.move_between_named_lists("scanned_items", "splitter_items", selected.id)
+                self.refresh_all()
 
     def _send_to_rename(self) -> None:
         selected = self._selected_item()
         if selected:
-            self.state.move_between_named_lists("scanned_items", "rename_items", selected.id)
-            self.refresh_all()
+            if self._move_doc_to_role(selected, "rename"):
+                self.state.move_between_named_lists("scanned_items", "rename_items", selected.id)
+                self.refresh_all()
 
     def _auto_route_all(self) -> None:
+        ok, msg, _cfg = self._config_status()
+        if not ok:
+            QtWidgets.QMessageBox.warning(self, "Auto-route", msg or "Configure folders first.")
+            return
         routes = routing_service.route_items(self.state.scanned_items)
         for item, target in routes:
             if target == "splitter":
-                self.state.move_between_named_lists("scanned_items", "splitter_items", item.id)
+                if self._move_doc_to_role(item, "splitter"):
+                    self.state.move_between_named_lists("scanned_items", "splitter_items", item.id)
             else:
-                self.state.move_between_named_lists("scanned_items", "rename_items", item.id)
+                if self._move_doc_to_role(item, "rename"):
+                    self.state.move_between_named_lists("scanned_items", "rename_items", item.id)
         self.refresh_all()
 
     def refresh(self) -> None:
-        source_root = settings_store.get_source_root()
-        self.source_label.setText(source_root or "Not set")
-        self.warning_label.setVisible(not bool(source_root))
+        ok, msg, cfg = self._config_status()
+        staging_root = cfg.staging if cfg else None
+        self.source_label.setText(staging_root or "Not set")
+        self.warning_label.setVisible(not ok)
+        if not ok:
+            self.warning_label.setText(msg or "Configure folders in Settings")
+        else:
+            self.warning_label.setText("")
+        self.refresh_btn.setEnabled(ok)
+        self.start_monitor_btn.setEnabled(ok)
+        self.to_splitter_btn.setEnabled(ok)
+        self.to_rename_btn.setEnabled(ok)
+        self.auto_route_all_btn.setEnabled(ok)
         self.list_widget.clear()
         show_completed = self.show_completed.isChecked()
         for doc in self.state.scanned_items:
             path = Path(doc.source_path)
+            if not self._is_in_staging_folder(path):
+                continue
             split_completion_store.prune_if_changed(path)
             is_done = split_completion_store.is_split_complete(path)
             if not show_completed and is_done:
@@ -143,12 +234,17 @@ class ScannedTab(QtWidgets.QWidget):
         self._update_preview()
 
     def _refresh_from_source(self) -> None:
-        source_root = settings_store.get_source_root()
+        ok, msg, cfg = self._config_status()
+        if not ok:
+            self.warning_label.setText(msg or "Configure folders in Settings")
+            self.warning_label.setVisible(True)
+            return
+        source_root = cfg.staging if cfg else None
         if not source_root:
             return
         root_path = Path(source_root)
         if not root_path.exists():
-            self.warning_label.setText("Source folder missing")
+            self.warning_label.setText("Staging folder missing")
             self.warning_label.setVisible(True)
             return
         existing_paths = {Path(doc.source_path).resolve() for doc in self.state.scanned_items}
@@ -232,79 +328,3 @@ class ScannedTab(QtWidgets.QWidget):
             self._clear_preview()
             self.preview_image.setText("Preview unavailable")
 
-    def _cached_ocr_text(self, path: Path) -> str:
-        fingerprint = ""
-        try:
-            fingerprint = ocr_cache_store.compute_fingerprint(path)
-        except Exception:
-            fingerprint = ""
-        try:
-            return ocr_cache_store.get_cached_text(
-                str(path),
-                max_pages=ocr_status_utils.OCR_STATUS_PAGES,
-                fingerprint=fingerprint or None,
-            )
-        except Exception as exc:  # noqa: BLE001
-            self.log.debug("Failed to read cached OCR text for %s: %s", path, exc)
-            return ""
-
-    def _handle_rerun_ocr(self, path: Path) -> None:
-        fingerprint = None
-        try:
-            fingerprint = ocr_cache_store.compute_fingerprint(path)
-        except Exception as exc:  # noqa: BLE001
-            self.log.debug("Failed to compute OCR fingerprint for %s: %s", path, exc)
-        try:
-            ocr_cache_store.delete_cached_text(
-                str(path),
-                max_pages=ocr_status_utils.OCR_STATUS_PAGES,
-                fingerprint=fingerprint or None,
-            )
-        except Exception as exc:  # noqa: BLE001
-            self.log.debug("Failed to clear OCR cache for %s: %s", path, exc)
-        try:
-            ocr_job_store.upsert_job(
-                str(path),
-                max_pages=ocr_status_utils.OCR_STATUS_PAGES,
-                status="QUEUED",
-                fingerprint=fingerprint or None,
-                worker_id="ui",
-            )
-        except Exception as exc:  # noqa: BLE001
-            self.log.debug("Failed to queue OCR job for %s: %s", path, exc)
-        self.refresh()
-
-    def _show_cached_ocr_text(self, path: Path) -> None:
-        cached_text = self._cached_ocr_text(path)
-        if not cached_text:
-            QtWidgets.QMessageBox.information(self, "OCR Text", "No cached OCR text found.")
-            return
-        dialog = QtWidgets.QDialog(self)
-        dialog.setWindowTitle(f"OCR Text - {path.name}")
-        layout = QtWidgets.QVBoxLayout(dialog)
-        text_widget = QtWidgets.QPlainTextEdit()
-        text_widget.setReadOnly(True)
-        text_widget.setPlainText(cached_text)
-        layout.addWidget(text_widget)
-        close_btn = QtWidgets.QPushButton("Close")
-        close_btn.clicked.connect(dialog.accept)
-        layout.addWidget(close_btn)
-        dialog.resize(700, 500)
-        dialog.exec()
-
-    def _show_context_menu(self, pos: QtCore.QPoint) -> None:
-        item = self.list_widget.itemAt(pos)
-        if not item:
-            return
-        doc = item.data(QtCore.Qt.UserRole)
-        if not isinstance(doc, DocumentItem):
-            return
-        path = Path(doc.source_path)
-        menu = QtWidgets.QMenu(self.list_widget)
-        rerun_action = menu.addAction("Re-run OCR")
-        view_action = menu.addAction("View OCR Text")
-        chosen = menu.exec(self.list_widget.mapToGlobal(pos))
-        if chosen == rerun_action:
-            self._handle_rerun_ocr(path)
-        elif chosen == view_action:
-            self._show_cached_ocr_text(path)

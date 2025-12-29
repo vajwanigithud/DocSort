@@ -10,6 +10,7 @@ from docsort.app.core.state import AppState, DocumentItem
 from docsort.app.services import pdf_split_service, split_plan_service
 from docsort.app.storage import settings_store, split_completion_store
 from docsort.app.ui.pdf_preview_widget import PdfPreviewWidget
+from docsort.app.utils import folder_validation
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +161,8 @@ class SplitterTab(QtWidgets.QWidget):
         self.list_widget.clear()
         show_completed = self.show_completed.isChecked()
         for doc in self.state.splitter_items:
+            if not self._is_in_splitter_folder(Path(doc.source_path)):
+                continue
             split_completion_store.prune_if_changed(Path(doc.source_path))
             is_done = split_completion_store.is_split_complete(Path(doc.source_path))
             if not show_completed and is_done:
@@ -176,6 +179,25 @@ class SplitterTab(QtWidgets.QWidget):
         if not item:
             return None
         return item.data(QtCore.Qt.UserRole)
+
+    def _splitter_root_path(self) -> Path | None:
+        root = settings_store.get_splitter_root()
+        if not root:
+            return None
+        try:
+            return Path(root).resolve()
+        except Exception:
+            return None
+
+    def _is_in_splitter_folder(self, path: Path) -> bool:
+        root = self._splitter_root_path()
+        if not root:
+            return False
+        try:
+            path.resolve().relative_to(root)
+            return True
+        except Exception:
+            return False
 
     # -----------------------------
     # Preview handling (QtPdf only)
@@ -277,15 +299,20 @@ class SplitterTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "Split Plan", error)
             return
 
-        source_root = settings_store.get_source_root()
-        if not source_root:
-            QtWidgets.QMessageBox.warning(self, "Split Plan", "Set Source folder in Settings first.")
+        cfg = settings_store.get_folder_config()
+        ok, msg, _paths = folder_validation.validate_folder_config(cfg)
+        if not ok:
+            QtWidgets.QMessageBox.warning(self, "Split Plan", msg or "Configure folders in Settings first.")
             return
-        source_root_path = Path(source_root)
+        rename_root = cfg.rename
+        if not rename_root:
+            QtWidgets.QMessageBox.warning(self, "Split Plan", "Configure a Rename / Action folder first.")
+            return
+        rename_root_path = Path(rename_root)
         try:
-            source_root_path.mkdir(parents=True, exist_ok=True)
+            rename_root_path.mkdir(parents=True, exist_ok=True)
         except Exception as exc:  # noqa: BLE001
-            QtWidgets.QMessageBox.warning(self, "Split Plan", f"Cannot access source folder: {exc}")
+            QtWidgets.QMessageBox.warning(self, "Split Plan", f"Cannot access rename folder: {exc}")
             return
         covered = sum((end - start + 1) for start, end in groups)
         if covered < total:
@@ -304,7 +331,7 @@ class SplitterTab(QtWidgets.QWidget):
 
         src = Path(doc.source_path)
         if src.exists() and src.suffix.lower() == ".pdf":
-            out_dir = source_root_path
+            out_dir = rename_root_path
             try:
                 def _do_split() -> list[str]:
                     return pdf_split_service.split_pdf_to_ranges(str(src), str(out_dir), groups)
