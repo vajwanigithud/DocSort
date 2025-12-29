@@ -298,18 +298,18 @@ def get_text_for_pdf(path: str, max_pages: int = 1) -> str:
     pdf_path = Path(path).resolve()
     if not pdf_path.exists():
         return ""
-    cached_path = ocr_input_cache.cache_pdf_for_ocr(pdf_path)
-    if not cached_path:
-        logger.warning("OCR cache copy unavailable for %s", pdf_path)
-        return ""
-    logger.info("OCR using cached copy: src=%s cached=%s", pdf_path, cached_path)
     effective_max_pages = max_pages
     key = _cache_key(pdf_path, effective_max_pages)
     if key in _text_cache:
         cached_val = _text_cache[key]
         _text_cache.move_to_end(key)
         return cached_val
+
     fingerprint = ocr_cache_store.compute_fingerprint(pdf_path)
+    cache_hit = False
+    text_source = ""
+    text = ""
+
     if fingerprint:
         try:
             persistent_text = ocr_cache_store.get_cached_text(
@@ -319,23 +319,26 @@ def get_text_for_pdf(path: str, max_pages: int = 1) -> str:
             logger.debug("OCR sqlite cache read failed path=%s err=%s", pdf_path, exc)
             persistent_text = ""
         if persistent_text:
-            _text_cache[key] = persistent_text
-            _text_cache.move_to_end(key)
-            if len(_text_cache) > _TEXT_CACHE_MAX_ENTRIES:
-                _text_cache.popitem(last=False)
-            logger.info(
-                "OCR sqlite cache hit path=%s max_pages=%s chars=%s",
-                pdf_path,
-                effective_max_pages,
-                len(persistent_text),
-            )
-            return persistent_text
-    logger.info("OCR text request start path=%s max_pages=%s", pdf_path, max_pages)
-    text = _try_pypdf_text(cached_path, max_pages=effective_max_pages)
+            cache_hit = True
+            text_source = "sqlite"
+            text = persistent_text
+
+    if not text:
+        text = _try_pypdf_text(pdf_path, max_pages=effective_max_pages)
+        text_source = "pypdf" if text else text_source
+
     if len(text) < 200 or len(text.split()) < 15:
-        ocr_text = _try_ocr(cached_path, max_pages=effective_max_pages)
+        cached_path = ocr_input_cache.cache_pdf_for_ocr(pdf_path)
+        if cached_path:
+            ocr_text = _try_ocr(cached_path, max_pages=effective_max_pages)
+            text_source = "ocr-cached"
+        else:
+            logger.warning("OCR cache copy unavailable for %s; falling back to direct OCR", pdf_path)
+            ocr_text = _try_ocr(pdf_path, max_pages=effective_max_pages)
+            text_source = "ocr-original"
         if ocr_text:
             text = ocr_text
+
     _text_cache[key] = text or ""
     _text_cache.move_to_end(key)
     if len(_text_cache) > _TEXT_CACHE_MAX_ENTRIES:
@@ -347,7 +350,14 @@ def get_text_for_pdf(path: str, max_pages: int = 1) -> str:
             )
         except Exception as exc:  # noqa: BLE001
             logger.debug("OCR sqlite cache write failed path=%s err=%s", pdf_path, exc)
-    logger.info("OCR text request finished path=%s chars=%s", pdf_path, len(text or ""))
+    logger.info(
+        "OCR text request path=%s fingerprint=%s cache_hit=%s source=%s chars=%s",
+        pdf_path,
+        bool(fingerprint),
+        cache_hit,
+        text_source or "none",
+        len(text or ""),
+    )
     return text or ""
 
 
@@ -436,6 +446,37 @@ def _build_invoice_suggestions(fields: invoice_field_extractor.InvoiceFields, fa
             continue
         deduped.append(filler_name)
     return deduped[:5]
+
+
+def _self_test_cache_read_first() -> bool:
+    """Lightweight sanity check: sqlite cache win even if cache_pdf_for_ocr returns None."""
+    import tempfile
+
+    tmp = Path(tempfile.gettempdir()) / f"docsort_ocr_test_{time.time_ns()}.pdf"
+    tmp.write_bytes(b"%PDF-1.4 test")
+    saved_get_cached = ocr_cache_store.get_cached_text
+    saved_upsert = ocr_cache_store.upsert_cached_text
+    saved_cache_pdf = ocr_input_cache.cache_pdf_for_ocr
+    saved_pypdf = _try_pypdf_text
+    saved_ocr = _try_ocr
+    try:
+        ocr_cache_store.get_cached_text = lambda *a, **k: "hello invoice"  # type: ignore[assignment]
+        ocr_cache_store.upsert_cached_text = lambda *a, **k: None  # type: ignore[assignment]
+        ocr_input_cache.cache_pdf_for_ocr = lambda *a, **k: None  # type: ignore[assignment]
+        globals()["_try_pypdf_text"] = lambda *a, **k: ""  # type: ignore[assignment]
+        globals()["_try_ocr"] = lambda *a, **k: ""  # type: ignore[assignment]
+        result = get_text_for_pdf(str(tmp), max_pages=1)
+        return result == "hello invoice"
+    finally:
+        ocr_cache_store.get_cached_text = saved_get_cached  # type: ignore[assignment]
+        ocr_cache_store.upsert_cached_text = saved_upsert  # type: ignore[assignment]
+        ocr_input_cache.cache_pdf_for_ocr = saved_cache_pdf  # type: ignore[assignment]
+        globals()["_try_pypdf_text"] = saved_pypdf
+        globals()["_try_ocr"] = saved_ocr
+        try:
+            tmp.unlink(missing_ok=True)
+        except Exception:
+            pass
 
 
 def build_ocr_suggestions(text: str, fallback_stem: str) -> List[str]:

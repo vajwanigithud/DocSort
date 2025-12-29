@@ -17,17 +17,24 @@ _CACHE_MAP: Dict[Tuple[str, str], Path] = {}
 
 
 def _ensure_cache_dir() -> Optional[Path]:
-    root = settings_store.get_rename_root()
-    if not root:
-        logger.warning("OCR cache: no rename_root configured.")
-        return None
+    roots = []
+    rename_root = settings_store.get_rename_root()
+    if rename_root:
+        roots.append(Path(rename_root))
     try:
-        cache_dir = Path(root) / CACHE_SUBDIR
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        return cache_dir
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("OCR cache: failed to create cache dir: %s", exc)
-        return None
+        roots.append(settings_store.get_storage_dir())
+    except Exception:
+        pass
+    for base in roots:
+        try:
+            cache_dir = Path(base) / CACHE_SUBDIR
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            return cache_dir
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("OCR cache: failed to create cache dir under %s: %s", base, exc)
+            continue
+    logger.warning("OCR cache: no cache directory available.")
+    return None
 
 
 def _cleanup_cache(cache_dir: Path, keep: int) -> None:
@@ -55,6 +62,9 @@ def cache_pdf_for_ocr(src: Path, keep: int = MAX_CACHED_PREVIEWS) -> Optional[Pa
         return None
     if not src.exists() or not src.is_file():
         logger.warning("OCR cache: source missing %s", src)
+        return None
+    if src.suffix.lower() != ".pdf":
+        logger.warning("OCR cache: source is not a PDF %s", src)
         return None
     try:
         resolved = src.resolve()
